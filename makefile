@@ -26,8 +26,8 @@ all: server client
 server: $(OBJS0) 
 	$(CC) -g $(OBJS0) -o $(OUT0) $(LFLAGS)
 
-client: $(OBJS1) $(LFLAGS)
-	$(CC) -g $(OBJS1) -o $(OUT1) $(LFLAGS)
+client: $(OBJS1)
+	$(CC) -g $(OBJS1) -o $(OUT1)
 
 server.o: server.c
 	$(CC) $(FLAGS) server.c 
