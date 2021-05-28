@@ -76,6 +76,7 @@ int main(int argc, char *argv[])
   /*--------------Main loop-------------------------------*/
 
   /*--------------Free resources--------------------------*/
+  return 0;
 }
 
 void cleanup()
