@@ -1,0 +1,1 @@
+./server -p 9090 -o ./Extras/logs.txt -l 4 -d /home/ragnaros/Desktop/Sockets-And-Threads/Extras/annual-enterprise-survey-2019-financial-year-provisional-csv.csv
