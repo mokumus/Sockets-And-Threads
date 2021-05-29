@@ -198,7 +198,8 @@ int main(int argc, char *argv[])
 
 void *worker_thread(void *data)
 {
-
+  pthread_detach(pthread_self());
+  
   return NULL;
 }
 
