@@ -25,8 +25,8 @@
 
 /* ----------------DEFINES--------------------*/
 
-#define MAX_PATH 256
-#define MAX_BACKLOG 128		// Maximum server queue for listen()
+#define MAX_PATH 1024
+#define MAX_BACKLOG 128 // Maximum server queue for listen()
 
 /*-----------------GLOBALS--------------------*/
 typedef struct
@@ -47,7 +47,7 @@ int server_socket, // Server descriptor
     pool_size,     // Current thread pool size
     n_running;     // Currently busy threads
 
-int opt_P, _P, // input port no
+int opt_P, _P, // Input port no
     opt_O,
     opt_L, _L,
     opt_D;
@@ -168,28 +168,30 @@ int main(int argc, char *argv[])
     errExit("Listen failed");
 
   /*--------------Main loop-------------------------------*/
-	// Handle connections while no SIGINT
-	while(!exit_requested){
-    addr_len = sizeof(addr_client); 
-    client_socket = accept(server_socket, (struct sockaddr *) &addr_client, &addr_len); 
+  // Handle connections while no SIGINT
+  while (!exit_requested)
+  {
+    addr_len = sizeof(addr_client);
+    client_socket = accept(server_socket, (struct sockaddr *)&addr_client, &addr_len);
 
-    if(client_socket > 0) {
+    if (client_socket > 0)
+    {
 
       int from, to;
 
-			read(client_socket, &from, sizeof(int)); 
-			read(client_socket, &to, sizeof(int)); 
+      read(client_socket, &from, sizeof(int));
+      read(client_socket, &to, sizeof(int));
 
       printf("TO: %d -- FROM: %d\n", to, from);
 
+      write(client_socket, "CTRL+C Mühendisi\n", strlen("CTRL+C Mühendisi\n"));
     }
-
   }
 
   /*--------------Free resources--------------------------*/
 
-	free(thread_ids);
-	free(td);
+  free(thread_ids);
+  free(td);
 
   return 0;
 }
@@ -216,6 +218,12 @@ void exit_on_invalid_input(void)
   if (_L < 2)
   {
     printf("Number of threads at startup cannot be lower than 2\n");
+    print_usage();
+    exit(EXIT_FAILURE);
+  }
+  if (_P <= 1000)
+  {
+    printf("Port number should be larger then 1000.\n");
     print_usage();
     exit(EXIT_FAILURE);
   }
