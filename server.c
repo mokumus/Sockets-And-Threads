@@ -25,11 +25,11 @@
 
 /* ----------------DEFINES--------------------*/
 
-#define MAX_PATH 1024
-#define MAX_BACKLOG 128 // Maximum server queue for listen()
-#define MAX_FIELDS 30
-#define MAX_NAME 64
-#define MAX_LINE 1024
+#define MAX_PATH 1024   // Max file path length
+#define MAX_BACKLOG 128 // Max server queue for listen()
+#define MAX_FIELDS 30   // Max number of fields csv can have
+#define MAX_NAME 64     // Max string lenght of field names
+#define MAX_LINE 1024   // Max string of a data row(combined string length of all fields)
 
 /*-----------------DATA STRUCTURE-------------*/
 
@@ -182,13 +182,15 @@ int main(int argc, char *argv[])
     int curr_field = 0;
     char buffer[256];
     int n = 0;
+    printf("\n ============================== \n");
     for (int i = 0; line[i] != 0; i++)
     {
 
+      
 
-      if (line[i+1] == 0){
+      if (line[i+1] == '\n'){
         buffer[n] = 0;
-        printf("\nfield %d: %s\n", curr_field, buffer);
+        printf("field %d: %s == len: %ld\n", curr_field, buffer, strlen(buffer));
         continue;
       }
 
@@ -205,9 +207,8 @@ int main(int argc, char *argv[])
         {
           buffer[n] = 0;
           n = 0;
-          printf("\n");
           
-          printf("field %d: %s", curr_field, buffer);
+          printf("field %d: %s == len: %ld\n", curr_field, buffer, strlen(buffer));
           curr_field++;
         }
 
@@ -222,8 +223,8 @@ int main(int argc, char *argv[])
         if(line[i] == '"'){
           buffer[n] = 0;
           n = 0;
-          printf("\n");
-          printf("field %d: %s", curr_field, buffer);
+          
+          printf("field %d: %s == len: %ld\n", curr_field, buffer, strlen(buffer));
         }
         
       }
