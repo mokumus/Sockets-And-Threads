@@ -27,6 +27,29 @@
 
 #define MAX_PATH 1024
 #define MAX_BACKLOG 128 // Maximum server queue for listen()
+#define MAX_FIELDS 30
+#define MAX_NAME 64
+#define MAX_LINE 1024
+
+/*-----------------DATA STRUCTURE-------------*/
+
+typedef struct
+{
+  char *data;
+} Cell;
+
+typedef struct
+{
+  Cell *cols;
+} DataRow;
+
+typedef struct
+{
+  int n_fields;
+  int n_rows;
+  char fields[MAX_FIELDS][MAX_NAME];
+  DataRow *rows;
+} DataBase;
 
 /*-----------------GLOBALS--------------------*/
 typedef struct
@@ -37,6 +60,7 @@ typedef struct
 
 pthread_t *thread_ids; // Path calculator thread PIDS
 ThreadData *td;
+DataBase db;
 
 sig_atomic_t exit_requested = 0; //SIGINT FLAG
 
@@ -128,6 +152,87 @@ int main(int argc, char *argv[])
 
   print_inputs();
 
+  /*--------------Initilize DB----------------------------*/
+
+  FILE *fp = fopen(_D, "r");
+
+  char line[MAX_LINE];
+
+  fgets(line, MAX_LINE, fp);
+
+  char *token;
+
+  printf("FIELDS : \n");
+
+  token = strtok(line, ",");
+
+  strcpy(db.fields[db.n_fields], token);
+
+  while (token != NULL)
+  {
+    strcpy(db.fields[db.n_fields], token);
+    printf(" %s\n", db.fields[db.n_fields++]);
+    token = strtok(NULL, ",");
+  }
+
+  printf("n_fields: %d\n", db.n_fields);
+  while (fgets(line, MAX_LINE, fp))
+  {
+    int in_quote = 0;
+    int curr_field = 0;
+    char buffer[256];
+    int n = 0;
+    for (int i = 0; line[i] != 0; i++)
+    {
+
+
+      if (line[i+1] == 0){
+        buffer[n] = 0;
+        printf("\nfield %d: %s\n", curr_field, buffer);
+        continue;
+      }
+
+      if (line[i] == '"'){
+        in_quote = in_quote == 0 ? 1 : 0;
+        continue;
+      }
+        
+
+  
+      if (!in_quote)
+      {
+        if (line[i] == ',')
+        {
+          buffer[n] = 0;
+          n = 0;
+          printf("\n");
+          
+          printf("field %d: %s", curr_field, buffer);
+          curr_field++;
+        }
+
+        else{
+          
+          buffer[n++] = line[i];
+        }
+          
+      }
+      else {
+        buffer[n++] = line[i];
+        if(line[i] == '"'){
+          buffer[n] = 0;
+          n = 0;
+          printf("\n");
+          printf("field %d: %s", curr_field, buffer);
+        }
+        
+      }
+    }
+  }
+
+  fclose(fp);
+  exit(EXIT_SUCCESS);
+
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
   setbuf(stderr, NULL);
@@ -199,7 +304,7 @@ int main(int argc, char *argv[])
 void *worker_thread(void *data)
 {
   pthread_detach(pthread_self());
-  
+
   return NULL;
 }
 
