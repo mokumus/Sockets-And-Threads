@@ -35,20 +35,10 @@
 
 typedef struct
 {
-  char *data;
-} Cell;
-
-typedef struct
-{
-  Cell *cols;
-} DataRow;
-
-typedef struct
-{
   int n_fields;
   int n_rows;
   char fields[MAX_FIELDS][MAX_NAME];
-  DataRow *rows;
+  char ***rows;
 } DataBase;
 
 /*-----------------GLOBALS--------------------*/
@@ -103,6 +93,7 @@ void print_inputs(void);
 char *timestamp(void);
 void cleanup(void);
 void exit_on_invalid_input(void);
+int lines(const char* path);
 
 // Signal handler
 void sigint_handler(int sig_no);
@@ -176,12 +167,24 @@ int main(int argc, char *argv[])
   }
 
   printf("n_fields: %d\n", db.n_fields);
+  db.n_rows = lines(_D);
+
+  printf("n_rows: %d\n", db.n_rows);
+
+  db.rows = malloc(db.n_rows * sizeof(char **));
+  for(int i = 0; i < db.n_rows; i++){
+    db.rows[i] = malloc(db.n_fields * sizeof(char *));
+  }
+  
   while (fgets(line, MAX_LINE, fp))
   {
     int in_quote = 0;
     int curr_field = 0;
     char buffer[256];
     int n = 0;
+    int curr_line = 0;
+    
+
     printf("\n ============================== \n");
     for (int i = 0; line[i] != 0; i++)
     {
@@ -190,7 +193,10 @@ int main(int argc, char *argv[])
 
       if (line[i+1] == '\n'){
         buffer[n] = 0;
-        printf("field %d: %s == len: %ld\n", curr_field, buffer, strlen(buffer));
+        db.rows[curr_line][curr_field] = malloc((n+1) * sizeof(char));
+        strcpy(db.rows[curr_line][curr_field], buffer);
+
+        printf("field %d: %s == len: %ld\n", curr_field, db.rows[curr_line][curr_field], strlen(buffer));
         continue;
       }
 
@@ -206,10 +212,12 @@ int main(int argc, char *argv[])
         if (line[i] == ',')
         {
           buffer[n] = 0;
-          n = 0;
           
-          printf("field %d: %s == len: %ld\n", curr_field, buffer, strlen(buffer));
+          db.rows[curr_line][curr_field] = malloc((n+1)  * sizeof(char));
+          strcpy(db.rows[curr_line][curr_field], buffer);
+          printf("field %d: %s == len: %ld\n", curr_field, db.rows[curr_line][curr_field], strlen(buffer));
           curr_field++;
+          n = 0;
         }
 
         else{
@@ -222,15 +230,22 @@ int main(int argc, char *argv[])
         buffer[n++] = line[i];
         if(line[i] == '"'){
           buffer[n] = 0;
-          n = 0;
           
-          printf("field %d: %s == len: %ld\n", curr_field, buffer, strlen(buffer));
+          db.rows[curr_line][curr_field] = malloc((n+1)  * sizeof(char));
+          strcpy(db.rows[curr_line][curr_field], buffer);
+          printf("field %d: %s == len: %ld\n", curr_field, db.rows[curr_line][curr_field], strlen(buffer));
+          n = 0;
         }
         
       }
     }
   }
-
+  for(int i = 0; i < db.n_rows; i++){
+    for(int k = 0; k < db.n_fields-1; k++)
+      free(db.rows[i][k]);
+    free(db.rows[i]);
+  }
+  free(db.rows);
   fclose(fp);
   exit(EXIT_SUCCESS);
 
@@ -365,4 +380,25 @@ char *timestamp()
   char *time = asctime(gmtime(&now));
   time[strlen(time) - 1] = '\0'; // Remove \n
   return time;
+}
+
+int lines(const char *path)
+{
+  int fd = open(path, O_RDONLY);
+  char c, last = '\n';
+  int i = 0, lines = 0;
+
+  while (pread(fd, &c, 1, i++))
+  {
+
+    if (c == '\n' && last != '\n')
+      lines++;
+    last = c;
+  }
+  if (last != '\n')
+    lines++;
+
+  close(fd);
+
+  return lines;
 }
