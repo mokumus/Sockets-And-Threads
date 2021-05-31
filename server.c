@@ -80,7 +80,6 @@ char _D[MAX_PATH]; // Dataset file input
 // Logging macro to add timestamp before prints
 #define print_log(f_, ...) pthread_mutex_lock(&mutex_stdout), printf("%s ", timestamp()), printf((f_), ##__VA_ARGS__), printf("\n"), fflush(stdout), pthread_mutex_unlock(&mutex_stdout)
 
-/* ----------------DATA STRUCTURE-------------*/
 
 /* ----------------PROTOTYPES-----------------*/
 
@@ -232,7 +231,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i < _L; i++)
     pthread_join(thread_ids[i], NULL);
 
-  print_log("All threads have terminated, server shutting down. ");
+  print_log("All threads have terminated, server shutting down.");
 
   // Free DB
   for (int i = 0; i < db->n_rows; i++)
