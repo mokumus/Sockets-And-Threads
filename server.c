@@ -62,7 +62,7 @@ int server_socket, // Server descriptor
 
 int opt_P, _P, // Input port no
     opt_O,
-    opt_L, _L,
+    opt_L, _L, // Pool size
     opt_D;
 
 char _O[MAX_PATH]; // Log file input
@@ -149,19 +149,17 @@ int main(int argc, char *argv[])
 
   /*--------------Initilize DB----------------------------*/
 
+  print_log("Loading dataset...");
+  clock_t t = clock();
+
   DataBase *db = db_init();
 
+  t = clock() - t;
+  double time_taken = ((double)t) / CLOCKS_PER_SEC; // calculate the elapsed time
+
+  print_log("Dataset loaded in %f seconds with %d records", time_taken, db->n_rows);
+
   //db_print(db, 0, db->n_rows);
-
-  for (int i = 0; i < db->n_rows; i++)
-  {
-    for (int k = 0; k < db->n_fields; k++)
-      free(db->rows[i][k]);
-    free(db->rows[i]);
-  }
-  free(db->rows);
-
-  exit(EXIT_SUCCESS);
 
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
@@ -177,12 +175,15 @@ int main(int argc, char *argv[])
 
   signal(SIGINT, sigint_handler);
 
+  print_log("A pool of %d threads has been created.", _L);
   for (int i = 0; i < _L; i++)
   {
     td[i].id = i;
     td[i].active = 0;
     pthread_create(&thread_ids[i], NULL, worker_thread, &td[i]);
   }
+
+  
 
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket == -1)
@@ -224,6 +225,14 @@ int main(int argc, char *argv[])
   }
 
   /*--------------Free resources--------------------------*/
+  print_log("Termination signal received, waiting for ongoing threads to complete.");
+
+  // Join threads
+  // ...
+  for (int i = 0; i < _L; i++)
+    pthread_join(thread_ids[i], NULL);
+
+  print_log("All threads have terminated, server shutting down. ");
 
   // Free DB
   for (int i = 0; i < db->n_rows; i++)
@@ -242,7 +251,8 @@ int main(int argc, char *argv[])
 
 void *worker_thread(void *data)
 {
-  pthread_detach(pthread_self());
+  ThreadData * td = data;
+  print_log("Thread #%d: waiting for connection.", td->id);
 
   return NULL;
 }
@@ -343,7 +353,6 @@ DataBase *db_init(void)
   for (int i = 0; i < db.n_rows; i++)
     db.rows[i] = malloc(db.n_fields * sizeof(char *));
 
-  
   // Populate fields from the input file
   while (fgets(line, MAX_LINE, fp))
   {
