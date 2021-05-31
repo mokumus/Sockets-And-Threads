@@ -41,6 +41,7 @@ typedef struct
   char ***rows;
 } DataBase;
 
+
 /*-----------------GLOBALS--------------------*/
 typedef struct
 {
@@ -181,8 +182,6 @@ int main(int argc, char *argv[])
     td[i].active = 0;
     pthread_create(&thread_ids[i], NULL, worker_thread, &td[i]);
   }
-
-  
 
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket == -1)
