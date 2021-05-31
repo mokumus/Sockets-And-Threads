@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 
   print_log("Dataset loaded in %f seconds with %d records", time_taken, db->n_rows);
 
-  //db_print(db, 0, db->n_rows);
+  db_print(db, 0, 5);
 
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
