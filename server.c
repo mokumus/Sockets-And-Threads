@@ -58,7 +58,6 @@ pthread_mutex_t mutex_stdout = PTHREAD_MUTEX_INITIALIZER; // File lock mutex for
 
 int server_socket, // Server descriptor
     client_socket, // Client descriptor
-    pool_size,     // Current thread pool size
     n_running;     // Currently busy threads
 
 int opt_P, _P, // Input port no
@@ -93,7 +92,12 @@ void print_inputs(void);
 char *timestamp(void);
 void cleanup(void);
 void exit_on_invalid_input(void);
-int lines(const char* path);
+
+// Database functions
+int lines(const char *path);
+DataBase *db_init(void);
+void db_print(DataBase *db, int start, int end);
+void db_print_row(DataBase *db, int n);
 
 // Signal handler
 void sigint_handler(int sig_no);
@@ -145,108 +149,18 @@ int main(int argc, char *argv[])
 
   /*--------------Initilize DB----------------------------*/
 
-  FILE *fp = fopen(_D, "r");
+  DataBase *db = db_init();
 
-  char line[MAX_LINE];
+  //db_print(db, 0, db->n_rows);
 
-  fgets(line, MAX_LINE, fp);
-
-  char *token;
-
-  printf("FIELDS : \n");
-
-  token = strtok(line, ",");
-
-  strcpy(db.fields[db.n_fields], token);
-
-  while (token != NULL)
+  for (int i = 0; i < db->n_rows; i++)
   {
-    strcpy(db.fields[db.n_fields], token);
-    printf(" %s\n", db.fields[db.n_fields++]);
-    token = strtok(NULL, ",");
+    for (int k = 0; k < db->n_fields; k++)
+      free(db->rows[i][k]);
+    free(db->rows[i]);
   }
+  free(db->rows);
 
-  printf("n_fields: %d\n", db.n_fields);
-  db.n_rows = lines(_D);
-
-  printf("n_rows: %d\n", db.n_rows);
-
-  db.rows = malloc(db.n_rows * sizeof(char **));
-  for(int i = 0; i < db.n_rows; i++){
-    db.rows[i] = malloc(db.n_fields * sizeof(char *));
-  }
-  
-  while (fgets(line, MAX_LINE, fp))
-  {
-    int in_quote = 0;
-    int curr_field = 0;
-    char buffer[256];
-    int n = 0;
-    int curr_line = 0;
-    
-
-    printf("\n ============================== \n");
-    for (int i = 0; line[i] != 0; i++)
-    {
-
-      
-
-      if (line[i+1] == '\n'){
-        buffer[n] = 0;
-        db.rows[curr_line][curr_field] = malloc((n+1) * sizeof(char));
-        strcpy(db.rows[curr_line][curr_field], buffer);
-
-        printf("field %d: %s == len: %ld\n", curr_field, db.rows[curr_line][curr_field], strlen(buffer));
-        continue;
-      }
-
-      if (line[i] == '"'){
-        in_quote = in_quote == 0 ? 1 : 0;
-        continue;
-      }
-        
-
-  
-      if (!in_quote)
-      {
-        if (line[i] == ',')
-        {
-          buffer[n] = 0;
-          
-          db.rows[curr_line][curr_field] = malloc((n+1)  * sizeof(char));
-          strcpy(db.rows[curr_line][curr_field], buffer);
-          printf("field %d: %s == len: %ld\n", curr_field, db.rows[curr_line][curr_field], strlen(buffer));
-          curr_field++;
-          n = 0;
-        }
-
-        else{
-          
-          buffer[n++] = line[i];
-        }
-          
-      }
-      else {
-        buffer[n++] = line[i];
-        if(line[i] == '"'){
-          buffer[n] = 0;
-          
-          db.rows[curr_line][curr_field] = malloc((n+1)  * sizeof(char));
-          strcpy(db.rows[curr_line][curr_field], buffer);
-          printf("field %d: %s == len: %ld\n", curr_field, db.rows[curr_line][curr_field], strlen(buffer));
-          n = 0;
-        }
-        
-      }
-    }
-  }
-  for(int i = 0; i < db.n_rows; i++){
-    for(int k = 0; k < db.n_fields-1; k++)
-      free(db.rows[i][k]);
-    free(db.rows[i]);
-  }
-  free(db.rows);
-  fclose(fp);
   exit(EXIT_SUCCESS);
 
   /*--------------Initilize server------------------------*/
@@ -310,6 +224,15 @@ int main(int argc, char *argv[])
   }
 
   /*--------------Free resources--------------------------*/
+
+  // Free DB
+  for (int i = 0; i < db->n_rows; i++)
+  {
+    for (int k = 0; k < db->n_fields; k++)
+      free(db->rows[i][k]);
+    free(db->rows[i]);
+  }
+  free(db->rows);
 
   free(thread_ids);
   free(td);
@@ -384,21 +307,109 @@ char *timestamp()
 
 int lines(const char *path)
 {
-  int fd = open(path, O_RDONLY);
-  char c, last = '\n';
-  int i = 0, lines = 0;
+  int lines = 0;
+  char buffer[MAX_LINE];
+  FILE *fp = fopen(path, "r");
 
-  while (pread(fd, &c, 1, i++))
-  {
-
-    if (c == '\n' && last != '\n')
-      lines++;
-    last = c;
-  }
-  if (last != '\n')
+  while (fgets(buffer, sizeof(buffer), fp) != NULL)
     lines++;
 
-  close(fd);
+  fclose(fp);
 
   return lines;
+}
+
+DataBase *db_init(void)
+{
+  DataBase static db;
+  char line[MAX_LINE];
+  char *token;
+  int curr_line = 0;
+  FILE *fp = fopen(_D, "r");
+
+  // Get field names from the first row
+  fgets(line, MAX_LINE, fp);
+  token = strtok(line, ",");
+  strcpy(db.fields[db.n_fields], token);
+  while (token != NULL)
+  {
+    strcpy(db.fields[db.n_fields++], token);
+    token = strtok(NULL, ",");
+  }
+
+  // Allocate memory for the database
+  db.n_rows = lines(_D) - 1;
+  db.rows = malloc(db.n_rows * sizeof(char **));
+  for (int i = 0; i < db.n_rows; i++)
+    db.rows[i] = malloc(db.n_fields * sizeof(char *));
+
+  
+  // Populate fields from the input file
+  while (fgets(line, MAX_LINE, fp))
+  {
+    int in_quote = 0;
+    int curr_field = 0;
+    char buffer[256];
+    int n = 0;
+
+    for (int i = 0; line[i] != 0; i++)
+    {
+      if (line[i + 1] == '\n')
+      {
+        buffer[n] = 0;
+        db.rows[curr_line][curr_field] = malloc((n + 1) * sizeof(char));
+        strcpy(db.rows[curr_line][curr_field], buffer);
+        continue;
+      }
+
+      if (line[i] == '"')
+      {
+        in_quote = in_quote == 0 ? 1 : 0;
+        continue;
+      }
+
+      if (!in_quote)
+      {
+        if (line[i] == ',')
+        {
+          buffer[n] = 0;
+          db.rows[curr_line][curr_field] = malloc((n + 1) * sizeof(char));
+          strcpy(db.rows[curr_line][curr_field], buffer);
+          curr_field++;
+          n = 0;
+        }
+
+        else
+          buffer[n++] = line[i];
+      }
+      else
+      {
+        buffer[n++] = line[i];
+        if (line[i] == '"')
+        {
+          buffer[n] = 0;
+          db.rows[curr_line][curr_field] = malloc((n + 1) * sizeof(char));
+          strcpy(db.rows[curr_line][curr_field], buffer);
+          n = 0;
+        }
+      }
+    }
+    curr_line++;
+  }
+  fclose(fp);
+  return &db;
+}
+
+void db_print(DataBase *db, int start, int end)
+{
+  for (int i = start; i < end; i++)
+    db_print_row(db, i);
+}
+
+void db_print_row(DataBase *db, int n)
+{
+  printf("R%d:", n);
+  for (int i = 0; i < db->n_fields; i++)
+    printf("%s,", db->rows[n][i]);
+  printf("\n");
 }
