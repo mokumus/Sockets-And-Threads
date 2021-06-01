@@ -249,6 +249,9 @@ int main(int argc, char *argv[])
         pthread_cond_signal(&cond_job); // Signal new job
       }
     }
+    shutdown(client_socket, SHUT_RDWR);
+    close(client_socket);
+
   }
 
   /*--------------Free resources--------------------------*/
@@ -291,6 +294,7 @@ void *worker_thread(void *data)
       print_log("Thread #%d: waiting for job.", td->id);
       pthread_cond_wait(&cond_job, &mutex_job); //wait for the condition
       if (exit_requested){
+        
         print_log("Thread #%d: exitting.", td->id);
         pthread_mutex_unlock(&mutex_job);
         return NULL;
@@ -304,11 +308,13 @@ void *worker_thread(void *data)
     pthread_mutex_unlock(&mutex_job);
 
     // Do the deed
+    sleep(1);
 
     write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
     print_log("Thread-%d handled request", td->id);
 
     RL.requests_handled++;
+    //shutdown(curr_job.client_socket, SHUT_RD);
   }
 
   return NULL;
