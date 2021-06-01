@@ -42,7 +42,7 @@ void exit_on_invalid_input(void);
 int main(int argc, char *argv[])
 {
   char _A[MAX_IP];
-  int server_socket, _s = -1, _d = -1, option;
+  int server_socket, option;
   struct sockaddr_in addr_server = {0};
 
   /* -------------Parse command line input ---------------*/
@@ -86,52 +86,44 @@ int main(int argc, char *argv[])
   addr_server.sin_port = htons(_P);
 
   // connect the client socket to server socket
-  print_log("Client (%d) connecting to %s:%d", _I, _A, _P);
+  print_log("Client-%d connecting to %s:%d", _I, _A, _P);
   if (connect(server_socket, (struct sockaddr *)&addr_server, sizeof(addr_server)) != 0)
     errExit("Connect failed");
 
-  print_log("Client (%d) connected", _I);
+  //print_log("Client (%d) connected", _I);
 
   FILE *fp = fopen(_O, "r");
   char line[MAX_REQUEST];
 
+  int total_queries;
+
   while (fgets(line, MAX_REQUEST, fp))
-  { 
-      int i;
-      char buffer[MAX_REQUEST];
+  {
+    int i;
+    char buffer[MAX_REQUEST];
 
-      sscanf(line, "%d", &i);
-      line[strlen(line)-1] = 0;
-      if(i == _I){
-        print_log("Client (%d) request: %s", getpid(), line);
+    sscanf(line, "%d", &i);
+    line[strlen(line) - 1] = 0;
+    if (i == _I)
+    {
+      total_queries++;
+      print_log("Client-%d connected and sending query  '%s'", _I, line);
 
-        write(server_socket, line, sizeof(line));
-        read(server_socket, buffer, sizeof(buffer));
+      clock_t t = clock();
 
-        print_log("Server’s response: %s", buffer);
-      }
+      write(server_socket, line, sizeof(line));
+      read(server_socket, buffer, sizeof(buffer));
 
+      t = clock() - t;
+      double time_taken = ((double)t) / CLOCKS_PER_SEC;
+      print_log("Server’s response to Client-%d is X records, and arrived in %f seconds.", _I, time_taken);
     }
+  }
+  print_log("A total of %d queries were executed, client is terminating.", total_queries);
 
-    //make_request(server_socket, &_s, &_d);
+  //make_request(server_socket, &_s, &_d);
 
   exit(EXIT_SUCCESS);
-}
-
-void make_request(int server_socket, int *src, int *dst)
-{
-  char buffer[MAX_REQUEST];
-
-  clock_t t = clock();
-
-  write(server_socket, src, sizeof(int));
-  write(server_socket, dst, sizeof(int));
-  read(server_socket, buffer, sizeof(buffer));
-
-  t = clock() - t;
-  double time_taken = ((double)t) / CLOCKS_PER_SEC;
-
-  print_log("Server’s response to (%d): %s, arrived in %f seconds, shutting down.", getpid(), buffer, time_taken);
 }
 
 void print_usage(void)
