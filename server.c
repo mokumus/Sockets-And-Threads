@@ -42,6 +42,26 @@ typedef struct
   char ***rows;
 } DataBase;
 
+typedef struct
+{
+  int client_socket;
+  char command[MAX_REQUEST];
+} Job;
+
+struct node
+{
+  struct node *next;
+  Job job;
+};
+
+typedef struct
+{
+  struct node *head;
+  struct node *tail;
+  int n;
+  int requests_handled;
+} RequestList;
+
 
 /*-----------------GLOBALS--------------------*/
 typedef struct
@@ -54,9 +74,13 @@ pthread_t *thread_ids; // Path calculator thread PIDS
 ThreadData *td;
 DataBase db;
 
+RequestList RL;
+
 sig_atomic_t exit_requested = 0; //SIGINT FLAG
 
 pthread_mutex_t mutex_stdout = PTHREAD_MUTEX_INITIALIZER; // File lock mutex for stdout
+pthread_cond_t cond_job = PTHREAD_COND_INITIALIZER;       // Signal new jobs
+pthread_mutex_t mutex_job = PTHREAD_MUTEX_INITIALIZER;    // Thread data mutex (job)
 
 int server_socket, // Server descriptor
     client_socket, // Client descriptor
@@ -99,6 +123,10 @@ int lines(const char *path);
 DataBase *db_init(void);
 void db_print(DataBase *db, int start, int end);
 void db_print_row(DataBase *db, int n);
+
+// Job queue
+void add_request(int client_socket, char request[MAX_REQUEST]);
+Job get_next_request(void);
 
 // Signal handler
 void sigint_handler(int sig_no);
@@ -212,17 +240,16 @@ int main(int argc, char *argv[])
     if (client_socket > 0)
     {
       char buffer[MAX_REQUEST];
-      int from, to;
 
       while(read(client_socket, buffer, sizeof(buffer))){
         printf("REQUEST: %s\n", buffer);
 
-        write(client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
+        // write(client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
+        // Add request to jobs
+        add_request(client_socket, buffer);
+        pthread_cond_signal(&cond_job); // Signal new job
+
       }
-      //read(client_socket, &from, sizeof(int));
-      //read(client_socket, &to, sizeof(int));
-
-
     }
   }
 
@@ -255,6 +282,27 @@ void *worker_thread(void *data)
 {
   ThreadData * td = data;
   print_log("Thread #%d: waiting for connection.", td->id);
+
+  while (!exit_requested){
+    pthread_mutex_lock(&mutex_job); //mutex lock
+    while (RL.n == 0)
+      pthread_cond_wait(&cond_job, &mutex_job); //wait for the condition
+
+    print_log("Thread-%d is handling request", td->id);
+    Job curr_job;
+    curr_job = get_next_request();
+    
+    pthread_mutex_unlock(&mutex_job);
+
+    // Do the deed
+
+    write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
+    print_log("Thread-%d handled request", td->id);
+
+    RL.requests_handled++;
+    
+  }
+
 
   return NULL;
 }
@@ -423,4 +471,45 @@ void db_print_row(DataBase *db, int n)
   for (int i = 0; i < db->n_fields; i++)
     printf("%s,", db->rows[n][i]);
   printf("\n");
+}
+
+void add_request(int client_socket, char request[MAX_REQUEST]){
+  struct node *newnode = malloc(sizeof(struct node));
+  newnode->job.client_socket = client_socket;
+  newnode->next = NULL;
+  if (RL.tail == NULL)
+  {
+    RL.head = newnode;
+  }
+  else
+  {
+    RL.tail->next = newnode;
+  }
+
+  RL.tail = newnode;
+  strcpy(RL.tail->job.command, request);
+  RL.n++;
+}
+
+Job get_next_request(void){
+  if (RL.head == NULL)
+  {
+    Job result = {0};
+    pthread_mutex_unlock(&mutex_job);
+    return result;
+  }
+
+  else
+  {
+    Job result = RL.head->job; 
+    struct node *temp = RL.head;
+    RL.head = RL.head->next;
+    if (RL.head == NULL)
+    {
+      RL.tail = NULL;
+    }
+    free(temp);
+    RL.n--;
+    return result;
+  }
 }
