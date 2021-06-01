@@ -62,7 +62,6 @@ typedef struct
   int requests_handled;
 } RequestList;
 
-
 /*-----------------GLOBALS--------------------*/
 typedef struct
 {
@@ -105,7 +104,6 @@ char _D[MAX_PATH]; // Dataset file input
   } while (0)
 // Logging macro to add timestamp before prints
 #define print_log(f_, ...) pthread_mutex_lock(&mutex_stdout), printf("%s ", timestamp()), printf((f_), ##__VA_ARGS__), printf("\n"), fflush(stdout), pthread_mutex_unlock(&mutex_stdout)
-
 
 /* ----------------PROTOTYPES-----------------*/
 
@@ -241,20 +239,23 @@ int main(int argc, char *argv[])
     {
       char buffer[MAX_REQUEST];
 
-      while(read(client_socket, buffer, sizeof(buffer))){
+      while (read(client_socket, buffer, sizeof(buffer)))
+      {
         printf("REQUEST: %s\n", buffer);
 
         // write(client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
         // Add request to jobs
         add_request(client_socket, buffer);
         pthread_cond_signal(&cond_job); // Signal new job
-
       }
     }
   }
 
   /*--------------Free resources--------------------------*/
   print_log("Termination signal received, waiting for ongoing threads to complete.");
+  
+  exit_requested = 1;
+  pthread_cond_broadcast(&cond_job);
 
   // Join threads
   // ...
@@ -280,18 +281,26 @@ int main(int argc, char *argv[])
 
 void *worker_thread(void *data)
 {
-  ThreadData * td = data;
+  ThreadData *td = data;
   print_log("Thread #%d: waiting for connection.", td->id);
 
-  while (!exit_requested){
+  while (!exit_requested)
+  {
     pthread_mutex_lock(&mutex_job); //mutex lock
-    while (RL.n == 0)
+    while (RL.n == 0){
+      print_log("Thread #%d: waiting for job.", td->id);
       pthread_cond_wait(&cond_job, &mutex_job); //wait for the condition
+      if (exit_requested){
+        print_log("Thread #%d: exitting.", td->id);
+        pthread_mutex_unlock(&mutex_job);
+        return NULL;
+      } 
+    }
 
     print_log("Thread-%d is handling request", td->id);
     Job curr_job;
     curr_job = get_next_request();
-    
+
     pthread_mutex_unlock(&mutex_job);
 
     // Do the deed
@@ -300,9 +309,7 @@ void *worker_thread(void *data)
     print_log("Thread-%d handled request", td->id);
 
     RL.requests_handled++;
-    
   }
-
 
   return NULL;
 }
@@ -473,7 +480,8 @@ void db_print_row(DataBase *db, int n)
   printf("\n");
 }
 
-void add_request(int client_socket, char request[MAX_REQUEST]){
+void add_request(int client_socket, char request[MAX_REQUEST])
+{
   struct node *newnode = malloc(sizeof(struct node));
   newnode->job.client_socket = client_socket;
   newnode->next = NULL;
@@ -491,7 +499,8 @@ void add_request(int client_socket, char request[MAX_REQUEST]){
   RL.n++;
 }
 
-Job get_next_request(void){
+Job get_next_request(void)
+{
   if (RL.head == NULL)
   {
     Job result = {0};
@@ -501,7 +510,7 @@ Job get_next_request(void){
 
   else
   {
-    Job result = RL.head->job; 
+    Job result = RL.head->job;
     struct node *temp = RL.head;
     RL.head = RL.head->next;
     if (RL.head == NULL)
