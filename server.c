@@ -30,6 +30,7 @@
 #define MAX_FIELDS 30   // Max number of fields csv can have
 #define MAX_NAME 64     // Max string lenght of field names
 #define MAX_LINE 1024   // Max string of a data row(combined string length of all fields)
+#define MAX_REQUEST 4096
 
 /*-----------------DATA STRUCTURE-------------*/
 
@@ -210,15 +211,18 @@ int main(int argc, char *argv[])
 
     if (client_socket > 0)
     {
-
+      char buffer[MAX_REQUEST];
       int from, to;
 
-      read(client_socket, &from, sizeof(int));
-      read(client_socket, &to, sizeof(int));
+      while(read(client_socket, buffer, sizeof(buffer))){
+        printf("REQUEST: %s\n", buffer);
 
-      printf("TO: %d -- FROM: %d\n", to, from);
+        write(client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
+      }
+      //read(client_socket, &from, sizeof(int));
+      //read(client_socket, &to, sizeof(int));
 
-      write(client_socket, "CTRL+C Mühendisi\n", strlen("CTRL+C Mühendisi\n"));
+
     }
   }
 
