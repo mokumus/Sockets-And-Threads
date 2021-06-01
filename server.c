@@ -250,8 +250,6 @@ int main(int argc, char *argv[])
       }
     }
     shutdown(client_socket, SHUT_RDWR);
-    close(client_socket);
-
   }
 
   /*--------------Free resources--------------------------*/
