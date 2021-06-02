@@ -71,7 +71,7 @@ typedef struct
 
 pthread_t *thread_ids; // Path calculator thread PIDS
 ThreadData *td;
-DataBase db;
+DataBase *db;
 
 RequestList RL;
 
@@ -121,6 +121,9 @@ int lines(const char *path);
 DataBase *db_init(void);
 void db_print(DataBase *db, int start, int end);
 void db_print_row(DataBase *db, int n);
+void process_cmd(char cmd[MAX_REQUEST], int write_socket);
+int get_field_index(char *field_name);
+void gather_output(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket);
 
 // Job queue
 void add_request(int client_socket, char request[MAX_REQUEST]);
@@ -179,14 +182,38 @@ int main(int argc, char *argv[])
   print_log("Loading dataset...");
   clock_t t = clock();
 
-  DataBase *db = db_init();
+  db = db_init();
 
   t = clock() - t;
   double time_taken = ((double)t) / CLOCKS_PER_SEC; // calculate the elapsed time
 
   print_log("Dataset loaded in %f seconds with %d records", time_taken, db->n_rows);
 
-  db_print(db, 0, 5);
+  //process_cmd("1 SELECT * FROM TABLE;", 0);
+
+  process_cmd("1 SELECT * FROM TABLE WHERE Series_reference='MEIM.S1WA';", 0);
+
+  //process_cmd("1 SELECT  Period Subject FROM TABLE;", 0);
+
+  //process_cmd("2 UPDATE TABLE SET Series_title_5='This is a new title' WHERE Group='Industry by financial variable';", 0);
+
+  //process_cmd("1 SELECT DISTINCT Series_reference FROM TABLE;", 0);
+
+  //db_print(db, 0, 5);
+
+  // Free DB
+  for (int i = 0; i < db->n_rows; i++)
+  {
+    for (int k = 0; k < db->n_fields; k++)
+      free(db->rows[i][k]);
+    free(db->rows[i]);
+  }
+  free(db->rows);
+
+  free(thread_ids);
+  free(td);
+
+  exit(EXIT_SUCCESS);
 
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
@@ -254,7 +281,7 @@ int main(int argc, char *argv[])
 
   /*--------------Free resources--------------------------*/
   print_log("Termination signal received, waiting for ongoing threads to complete.");
-  
+
   exit_requested = 1;
   pthread_cond_broadcast(&cond_job);
 
@@ -288,28 +315,31 @@ void *worker_thread(void *data)
   while (!exit_requested)
   {
     pthread_mutex_lock(&mutex_job); //mutex lock
-    while (RL.n == 0){
+    while (RL.n == 0)
+    {
       print_log("Thread #%d: waiting for job.", td->id);
       pthread_cond_wait(&cond_job, &mutex_job); //wait for the condition
-      if (exit_requested){
-        
+      if (exit_requested)
+      {
+
         print_log("Thread #%d: exitting.", td->id);
         pthread_mutex_unlock(&mutex_job);
         return NULL;
-      } 
+      }
     }
 
-    print_log("Thread-%d is handling request", td->id);
+    print_log("A connection has been delegated to thread id #%d", td->id);
     Job curr_job;
     curr_job = get_next_request();
+    print_log("Thread #%d: received query ‘%s‘", td->id, curr_job.command);
 
     pthread_mutex_unlock(&mutex_job);
 
     // Do the deed
-    sleep(1);
+    usleep(500000); // Sleep 0.5 seconds
 
     write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
-    print_log("Thread-%d handled request", td->id);
+    print_log("Thread #%d: query completed, X records have been returned.", td->id);
 
     RL.requests_handled++;
     //shutdown(curr_job.client_socket, SHUT_RD);
@@ -400,12 +430,12 @@ DataBase *db_init(void)
 
   // Get field names from the first row
   fgets(line, MAX_LINE, fp);
-  token = strtok(line, ",");
+  token = strtok(line, ",\n\r");
   strcpy(db.fields[db.n_fields], token);
   while (token != NULL)
   {
     strcpy(db.fields[db.n_fields++], token);
-    token = strtok(NULL, ",");
+    token = strtok(NULL, ",\n\r");
   }
 
   // Allocate memory for the database
@@ -525,4 +555,152 @@ Job get_next_request(void)
     RL.n--;
     return result;
   }
+}
+
+void process_cmd(char cmd[MAX_REQUEST], int write_socket)
+{
+
+  char cmd_args[MAX_FIELDS][MAX_NAME];
+  int curr_arg = 0;
+  int in_quote = 0;
+  int n = 0;
+
+  // Parse SQL Command into tokens and store it in cmd_args
+  for (int i = 0; i < strlen(cmd); i++)
+  {
+
+    if (cmd[i + 1] == ';' || cmd[i + 1] == '\n' || cmd[i + 1] == 0)
+    {
+      if (cmd[i] != ',' && cmd[i] != '\'')
+        cmd_args[curr_arg][n++] = cmd[i];
+      cmd_args[curr_arg][n] = 0;
+      break;
+    }
+
+    if (cmd[i] == '\'' || cmd[i] == '"')
+    {
+
+      in_quote = in_quote == 0 ? 1 : 0;
+      continue;
+    }
+
+    if (!in_quote)
+    {
+      if (cmd[i] == ' ')
+      {
+        cmd_args[curr_arg++][n] = 0;
+        n = 0;
+      }
+
+      else
+      {
+        if (cmd[i] != ',' && cmd[i] != '\'')
+          cmd_args[curr_arg][n++] = cmd[i];
+      }
+    }
+    else
+    {
+      cmd_args[curr_arg][n++] = cmd[i];
+    }
+  }
+
+  // Process SQL command
+
+  for (int i = 0; i <= curr_arg; i++)
+  {
+    printf("%s + ", cmd_args[i]);
+  }
+
+  printf("\n");
+
+  if (strcmp(cmd_args[1], "SELECT") == 0)
+  {
+    if (strcmp(cmd_args[2], "*") == 0)
+    {
+      if (strcmp(cmd_args[5], "WHERE") == 0)
+      {
+        printf("returning some db: ");
+        int k = 0;
+        int field_indices[MAX_FIELDS];
+        char keys[MAX_FIELDS][MAX_LINE];
+
+        for (int i = 6; i <= curr_arg; i++)
+        {
+          printf("%d%s // ", get_field_index(cmd_args[i]), cmd_args[i]);
+          field_indices[k] = get_field_index(cmd_args[i]);
+          strcpy(keys[k++], strchr(cmd_args[i], '=') + 1);
+        }
+        field_indices[k] = -1;
+        printf("\n=============\n");
+        gather_output(k, field_indices, keys, write_socket);
+      }
+      else
+      {
+        printf("returning all db\n");
+      }
+    }
+  }
+}
+
+int get_field_index(char *field_name)
+{
+  char temp_field[MAX_NAME];
+  int ret = -1;
+
+  strcpy(temp_field, field_name);
+
+  char *p = strchr(temp_field, '=');
+  if (!p)
+    return ret;
+  else
+  {
+    *p = 0;
+  }
+
+  for (int i = 0; i < db->n_fields; i++)
+  {
+    if (strcmp(db->fields[i], temp_field) == 0)
+      return i;
+  }
+  return ret;
+}
+
+void gather_output(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket)
+{
+  int n_records = 0;
+  for (int k = 0; k < db->n_rows; k++)
+  {
+    int match = 0;
+    for (int i = 0; i < key_count; i++)
+    {
+      //printf("db->rows[k][i]: %s == %s\n",db->rows[k][i],keys[i]);
+      if (strcmp(db->rows[k][i], keys[i]) == 0)
+        match++;
+      if (match == key_count)
+      {
+        //db_print_row(db, k);
+        n_records++;
+        break;
+      }
+    }
+  }
+
+  printf("Found %d records\n", n_records);
+
+  for (int k = 0; k < db->n_rows; k++)
+  {
+    int match = 0;
+    for (int i = 0; i < key_count; i++)
+    {
+      //printf("db->rows[k][i]: %s == %s\n",db->rows[k][i],keys[i]);
+      if (strcmp(db->rows[k][i], keys[i]) == 0)
+        match++;
+      if (match == key_count)
+      {
+        db_print_row(db, k);
+        break;
+      }
+    }
+  }
+
 }

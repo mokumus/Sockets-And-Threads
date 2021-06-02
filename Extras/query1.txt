@@ -1,4 +1,5 @@
 1 SELECT * FROM TABLE;
-1 SELECT  Period Subject FROM TABLE;
+1 SELECT * FROM TABLE WHERE Series_reference='MEIM.S1WA', Period='1999';
+1 SELECT Period Subject FROM TABLE;
 2 UPDATE TABLE SET Series_title_5='This is a new title' WHERE Group='Industry by financial variable';
 1 SELECT DISTINCT Series_reference FROM TABLE;
