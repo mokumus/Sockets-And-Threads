@@ -95,15 +95,17 @@ int main(int argc, char *argv[])
   FILE *fp = fopen(_O, "r");
   char line[MAX_REQUEST];
 
-  int total_queries;
+  int total_queries=0;
 
   while (fgets(line, MAX_REQUEST, fp))
   {
     int i;
     char buffer[MAX_REQUEST];
+    for(int k = 0; k < MAX_REQUEST; k++)
+      buffer[k] = '\0';
 
     sscanf(line, "%d", &i);
-    line[strlen(line) - 1] = 0;
+    line[strlen(line) - 1] = '\0';
     if (i == _I)
     {
       total_queries++;
@@ -111,18 +113,20 @@ int main(int argc, char *argv[])
 
       clock_t t = clock();
 
-      write(server_socket, line, sizeof(line));
+
+      
+      write(server_socket, line, strlen(line));
       read(server_socket, buffer, sizeof(buffer));
 
       t = clock() - t;
       double time_taken = ((double)t) / CLOCKS_PER_SEC;
-      print_log("Server’s response to Client-%d is X records, and arrived in %f seconds.", _I, time_taken);
+      print_log("Server’s response to Client-%d is X records, and arrived in %f seconds. %s", _I, time_taken, buffer);
     }
   }
   print_log("A total of %d queries were executed, client is terminating.", total_queries);
 
   //make_request(server_socket, &_s, &_d);
-
+  fclose(fp);
   exit(EXIT_SUCCESS);
 }
 
