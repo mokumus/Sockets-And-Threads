@@ -119,7 +119,7 @@ void exit_on_invalid_input(void);
 int lines(const char *path);
 DataBase *db_init(void);
 void db_print(DataBase *db, int start, int end);
-void db_print_row(DataBase *db, int n);
+void db_print_row(DataBase *db, int n, int write_socket);
 void process_cmd(char cmd[MAX_REQUEST], int write_socket);
 int get_field_index(char *field_name);
 void gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket);
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 
   //process_cmd("1 SELECT * FROM TABLE;", 0);
 
-  //process_cmd("1 SELECT * FROM TABLE WHERE Series_reference='MEIM.S1WA';", 0);
+  process_cmd("1 SELECT * FROM TABLE;", 0);
 
   //process_cmd("1 SELECT  Period Subject FROM TABLE;", 0);
 
@@ -202,7 +202,6 @@ int main(int argc, char *argv[])
 
   // Free DB
 
-  /*
   for (int i = 0; i < db->n_rows; i++)
   {
     for (int k = 0; k < db->n_fields; k++)
@@ -215,8 +214,6 @@ int main(int argc, char *argv[])
   free(td);
 
   exit(EXIT_SUCCESS);
-
-  */
 
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
@@ -341,9 +338,11 @@ void *worker_thread(void *data)
       // Do the deed
       //printf("buffer: %s\n", buffer);
       usleep(500000); // Sleep 0.5 seconds
+
+      process_cmd(buffer, curr_job.client_socket);
+
       write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
       print_log("Thread #%d: query completed, X records have been returned.", td->id);
-      
     }
     shutdown(curr_job.client_socket, SHUT_RD);
     close(curr_job.client_socket);
@@ -458,11 +457,24 @@ DataBase *db_init(void)
 
     for (int i = 0; line[i] != 0; i++)
     {
+
+      if (line[i] == '\0' || line[i] == EOF || line[i] == '\n')
+        continue;
+
+      if (line[i + 1] == '\0' || line[i + 1] == EOF)
+      {
+        buffer[n] = 0;
+        db.rows[curr_line][curr_field] = malloc((n + 1) * sizeof(char));
+        strcpy(db.rows[curr_line][curr_field], buffer);
+        continue;
+      }
+
       if (line[i + 1] == '\n')
       {
         buffer[n] = 0;
         db.rows[curr_line][curr_field] = malloc((n + 1) * sizeof(char));
         strcpy(db.rows[curr_line][curr_field], buffer);
+        n = 0;
         continue;
       }
 
@@ -507,15 +519,34 @@ DataBase *db_init(void)
 void db_print(DataBase *db, int start, int end)
 {
   for (int i = start; i < end; i++)
-    db_print_row(db, i);
+    db_print_row(db, i, 0);
 }
 
-void db_print_row(DataBase *db, int n)
+void db_print_row(DataBase *db, int n, int write_socket)
 {
-  printf("R%d:", n);
-  for (int i = 0; i < db->n_fields; i++)
-    printf("%s,", db->rows[n][i]);
-  printf("\n");
+  if (write_socket == 0)
+  {
+    printf("R%d:", n);
+    for (int i = 0; i < db->n_fields; i++)
+      printf("%s,", db->rows[n][i]);
+    printf("\n");
+  }
+  else
+  {
+    char buffer[MAX_REQUEST];
+    int j = snprintf(buffer, MAX_REQUEST, "\n");
+    printf("j: %d\n", j);
+    for (int i = 0; i < db->n_fields; i++)
+      j += snprintf(&buffer[j], MAX_REQUEST, " %s ", db->rows[n][i]);
+
+    j += snprintf(&buffer[j], MAX_REQUEST, "\n");
+
+    buffer[j] = 0;
+
+    printf("buffer: %s", buffer);
+
+    //write(write_socket, buffer, strlen(buffer));
+  }
 }
 
 void add_request(int client_socket)
@@ -693,6 +724,7 @@ void gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[
         if (match == key_count)
         {
           //db_print_row(db, k);
+          db_print_row(db, k, write_socket);
           n_records++;
           break;
         }
@@ -700,22 +732,6 @@ void gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[
     }
 
     printf("Found %d records\n", n_records);
-
-    for (int k = 0; k < db->n_rows; k++)
-    {
-      int match = 0;
-      for (int i = 0; i < key_count; i++)
-      {
-        //printf("db->rows[k][i]: %s == %s\n",db->rows[k][i],keys[i]);
-        if (strcmp(db->rows[k][i], keys[i]) == 0)
-          match++;
-        if (match == key_count)
-        {
-          db_print_row(db, k);
-          break;
-        }
-      }
-    }
   }
   else
   {
@@ -723,6 +739,6 @@ void gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[
     n_records = db->n_rows;
     printf("Found %d records\n", n_records);
     for (int k = 0; k < db->n_rows; k++)
-      db_print_row(db, k);
+      db_print_row(db, k, write_socket);
   }
 }
