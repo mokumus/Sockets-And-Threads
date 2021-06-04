@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 
   //process_cmd("1 SELECT * FROM TABLE;", 0);
 
-  process_cmd("1 SELECT * FROM TABLE;", 0);
+  //process_cmd("2 SELECT * FROM TABLE WHERE Age='24';", 0);
 
   //process_cmd("1 SELECT  Period Subject FROM TABLE;", 0);
 
@@ -202,6 +202,9 @@ int main(int argc, char *argv[])
 
   // Free DB
 
+
+  /*
+  
   for (int i = 0; i < db->n_rows; i++)
   {
     for (int k = 0; k < db->n_fields; k++)
@@ -214,6 +217,8 @@ int main(int argc, char *argv[])
   free(td);
 
   exit(EXIT_SUCCESS);
+  */
+
 
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
@@ -331,9 +336,8 @@ void *worker_thread(void *data)
     pthread_mutex_unlock(&mutex_job);
 
     char buffer[MAX_REQUEST];
-    for (int k = 0; k < MAX_REQUEST; k++)
-      buffer[k] = '\0';
-    while (read(curr_job.client_socket, buffer, MAX_REQUEST))
+    bzero(buffer, MAX_REQUEST);
+    while (read(curr_job.client_socket, buffer, MAX_REQUEST)>0)
     {
       // Do the deed
       //printf("buffer: %s\n", buffer);
@@ -341,10 +345,11 @@ void *worker_thread(void *data)
 
       process_cmd(buffer, curr_job.client_socket);
 
-      write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
+      //write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
       print_log("Thread #%d: query completed, X records have been returned.", td->id);
+      break;
     }
-    shutdown(curr_job.client_socket, SHUT_RD);
+    shutdown(curr_job.client_socket, SHUT_RDWR);
     close(curr_job.client_socket);
   }
 
@@ -535,17 +540,15 @@ void db_print_row(DataBase *db, int n, int write_socket)
   {
     char buffer[MAX_REQUEST];
     int j = snprintf(buffer, MAX_REQUEST, "\n");
-    printf("j: %d\n", j);
+    //printf("j: %d\n", j);
     for (int i = 0; i < db->n_fields; i++)
-      j += snprintf(&buffer[j], MAX_REQUEST, " %s ", db->rows[n][i]);
-
-    j += snprintf(&buffer[j], MAX_REQUEST, "\n");
+      j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->rows[n][i]);
 
     buffer[j] = 0;
 
-    printf("buffer: %s", buffer);
+    //printf("buffer: %s", buffer);
 
-    //write(write_socket, buffer, strlen(buffer));
+    write(write_socket, buffer, strlen(buffer)+1);
   }
 }
 
@@ -658,19 +661,18 @@ void process_cmd(char cmd[MAX_REQUEST], int write_socket)
       if (strcmp(cmd_args[5], "WHERE") == 0)
       {
         printf("returning some db: ");
+        
         int k = 0;
         int field_indices[MAX_FIELDS];
         char keys[MAX_FIELDS][MAX_LINE];
-
         for (int i = 6; i <= curr_arg; i++)
         {
-          printf("%d%s // ", get_field_index(cmd_args[i]), cmd_args[i]);
           field_indices[k] = get_field_index(cmd_args[i]);
           strcpy(keys[k++], strchr(cmd_args[i], '=') + 1);
+          field_indices[k] = -1;
+          gather_output_star(k, field_indices, keys, write_socket);
+          break;
         }
-        field_indices[k] = -1;
-        printf("\n=============\n");
-        gather_output_star(k, field_indices, keys, write_socket);
       }
       else
       {
@@ -718,8 +720,7 @@ void gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[
       int match = 0;
       for (int i = 0; i < key_count; i++)
       {
-        //printf("db->rows[k][i]: %s == %s\n",db->rows[k][i],keys[i]);
-        if (strcmp(db->rows[k][i], keys[i]) == 0)
+        if (strcmp(db->rows[k][field_indices[i]], keys[i]) == 0)
           match++;
         if (match == key_count)
         {
@@ -741,4 +742,7 @@ void gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[
     for (int k = 0; k < db->n_rows; k++)
       db_print_row(db, k, write_socket);
   }
+  write(write_socket, "^", strlen("^")+1);
+
+  printf("\nGATHER_OUTPUT_COMPELTED\n");
 }

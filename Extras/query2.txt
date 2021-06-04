@@ -1,3 +1,3 @@
 1 SELECT * FROM TABLE;
 2 SELECT * FROM TABLE WHERE Age='24';
-1 SELECT * FROM TABLE WHERE Age='24', Hobbies='Computing';
+1 SELECT * FROM TABLE WHERE Hobbies='Tennis,Piano,Computing';

@@ -90,18 +90,20 @@ int main(int argc, char *argv[])
   if (connect(server_socket, (struct sockaddr *)&addr_server, sizeof(addr_server)) != 0)
     errExit("Connect failed");
 
-  //print_log("Client (%d) connected", _I);
+  print_log("Client (%d) connected", _I);
 
   FILE *fp = fopen(_O, "r");
   char line[MAX_REQUEST];
 
-  int total_queries=0;
+  int total_queries = 0;
+  setbuf(stdout, NULL);
+  setbuf(stderr, NULL);
 
   while (fgets(line, MAX_REQUEST, fp))
   {
     int i;
     char buffer[MAX_REQUEST];
-    for(int k = 0; k < MAX_REQUEST; k++)
+    for (int k = 0; k < MAX_REQUEST; k++)
       buffer[k] = '\0';
 
     sscanf(line, "%d", &i);
@@ -109,22 +111,33 @@ int main(int argc, char *argv[])
     if (i == _I)
     {
       total_queries++;
-      print_log("Client-%d connected and sending query  '%s'", _I, line);
+      print_log("Client-%d sending query  '%s'", _I, line);
 
       clock_t t = clock();
 
+      write(server_socket, line, strlen(line)+1 );
+      bzero(line, MAX_REQUEST);
+      while (read(server_socket, buffer, sizeof(buffer)) > 0)
+      {
 
-      
-      write(server_socket, line, strlen(line));
-      read(server_socket, buffer, sizeof(buffer));
+        if (buffer[0] == '^')
+        {
+          printf("\nQUERY COMPLETED\n");
+          continue;
+        }
+
+        printf("%s", buffer);
+        bzero(buffer, MAX_REQUEST);
+      }
 
       t = clock() - t;
-      double time_taken = ((double)t) / CLOCKS_PER_SEC;
-      print_log("Server’s response to Client-%d is X records, and arrived in %f seconds. %s", _I, time_taken, buffer);
+      //double time_taken = ((double)t) / CLOCKS_PER_SEC;
+      //print_log("Server’s response to Client-%d is X records, and arrived in %f seconds. %s", _I, time_taken, buffer);
     }
   }
   print_log("A total of %d queries were executed, client is terminating.", total_queries);
-
+  shutdown(server_socket, SHUT_RDWR);
+  close(server_socket);
   //make_request(server_socket, &_s, &_d);
   fclose(fp);
   exit(EXIT_SUCCESS);
