@@ -347,7 +347,7 @@ void *worker_thread(void *data)
 
       //write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
       print_log("Thread #%d: query completed, X records have been returned.", td->id);
-      break;
+      
     }
     shutdown(curr_job.client_socket, SHUT_RDWR);
     close(curr_job.client_socket);
@@ -544,11 +544,11 @@ void db_print_row(DataBase *db, int n, int write_socket)
     for (int i = 0; i < db->n_fields; i++)
       j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->rows[n][i]);
 
-    buffer[j] = 0;
-
     //printf("buffer: %s", buffer);
-
+    //printf("%s", buffer);
     write(write_socket, buffer, strlen(buffer)+1);
+    char c;
+    read(write_socket, &c, sizeof(char));
   }
 }
 

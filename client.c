@@ -117,18 +117,23 @@ int main(int argc, char *argv[])
 
       write(server_socket, line, strlen(line)+1 );
       bzero(line, MAX_REQUEST);
-      while (read(server_socket, buffer, sizeof(buffer)) > 0)
+      while (read(server_socket, buffer, sizeof(buffer)))
       {
-
+        
         if (buffer[0] == '^')
         {
           printf("\nQUERY COMPLETED\n");
-          continue;
+          break;
         }
 
         printf("%s", buffer);
         bzero(buffer, MAX_REQUEST);
+
+        char c = '?';
+        write(server_socket, &c, sizeof(char));
+        //printf("wrote c\n");
       }
+
 
       t = clock() - t;
       //double time_taken = ((double)t) / CLOCKS_PER_SEC;
