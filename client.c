@@ -111,18 +111,23 @@ int main(int argc, char *argv[])
     if (i == _I)
     {
       total_queries++;
+      int n_records = 0;
       print_log("Client-%d sending query  '%s'", _I, line);
 
       clock_t t = clock();
-
       write(server_socket, line, strlen(line)+1 );
       bzero(line, MAX_REQUEST);
+      printf("==================================================");
       while (read(server_socket, buffer, sizeof(buffer)))
       {
-        
+        n_records++;
         if (buffer[0] == '^')
         {
-          printf("\nQUERY COMPLETED\n");
+          printf("\n");
+          t = clock() - t;
+          double time_taken = ((double)t) / CLOCKS_PER_SEC;
+          print_log("Server’s response to Client-%d is %d records, and arrived in %f seconds.", _I, n_records-2, time_taken);
+          printf("==================================================\n");
           break;
         }
 
@@ -133,11 +138,6 @@ int main(int argc, char *argv[])
         write(server_socket, &c, sizeof(char));
         //printf("wrote c\n");
       }
-
-
-      t = clock() - t;
-      //double time_taken = ((double)t) / CLOCKS_PER_SEC;
-      //print_log("Server’s response to Client-%d is X records, and arrived in %f seconds. %s", _I, time_taken, buffer);
     }
   }
   print_log("A total of %d queries were executed, client is terminating.", total_queries);
