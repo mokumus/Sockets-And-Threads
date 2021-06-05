@@ -28,7 +28,7 @@
 #define MAX_FIELDS 30   // Max number of fields csv can have
 #define MAX_NAME 64     // Max string lenght of field names
 #define MAX_LINE 1024   // Max string of a data row(combined string length of all fields)
-#define MAX_REQUEST 500
+#define MAX_REQUEST 4096
 
 /*-----------------DATA STRUCTURE-------------*/
 

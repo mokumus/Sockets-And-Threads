@@ -2,7 +2,7 @@
 2 SELECT * FROM TABLE WHERE territorial_authority='Far North District'
 2 SELECT SA2_code, SA2_name FROM TABLE;
 1 UPDATE TABLE SET total_dwelling_units='1453', WHERE month='1990-04-01';
-1 UPDATE TABLE SET SA2_name='Waikiki', WHERE SA2_name='Whakapaku'; 
 3 SELECT DISTINCT SA2_name FROM TABLE;
 4 SELECT DISTINCT territorial_authority FROM TABLE;
 5 SELECT DISTINCT month FROM TABLE;
+1 UPDATE TABLE SET SA2_name='Waikiki', WHERE SA2_name='Whakapaku'; 
