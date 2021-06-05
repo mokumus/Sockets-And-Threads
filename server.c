@@ -358,7 +358,7 @@ void *worker_thread(void *data)
       sscanf(buffer, "%s %s", id, opt);
 
       print_log("Thread #%d: received query '%s'", td->id, buffer);
-      usleep(500000); // Sleep 0.5 seconds
+      //usleep(500000); // Sleep 0.5 seconds
 
       if (opt[0] == 'U')
       {
@@ -600,7 +600,7 @@ void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys
       {
         //printf("%-15s == %-15s\n", db->fields[field_indices[i]], keys[i]);
         if (strcmp(db->fields[field_indices[i]], keys[i]) == 0)
-          printf("%-17s", db->rows[n][field_indices[i]]);
+          printf("%-23s", db->rows[n][field_indices[i]]);
       }
 
       printf("\n");
@@ -616,7 +616,7 @@ void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys
       j = snprintf(buffer, MAX_REQUEST, "\n");
       //printf("j: %d\n", j);
       for (int i = 0; i < db->n_fields; i++)
-        j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->rows[n][i]);
+        j += snprintf(&buffer[j], MAX_REQUEST, "%-23s ", db->rows[n][i]);
 
       write(socket_fd, buffer, strlen(buffer) + 1);
       read(socket_fd, &c, sizeof(char));
@@ -627,7 +627,7 @@ void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys
       for (int i = 0; i < key_count; i++)
       {
         if (strcmp(db->fields[field_indices[i]], keys[i]) == 0)
-          j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->rows[n][field_indices[i]]);
+          j += snprintf(&buffer[j], MAX_REQUEST, "%-23s ", db->rows[n][field_indices[i]]);
       }
       write(socket_fd, buffer, strlen(buffer) + 1);
       read(socket_fd, &c, sizeof(char));
@@ -909,7 +909,7 @@ void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX
   {
     j = snprintf(buffer, MAX_REQUEST, "\n");
     for (int i = 0; i < db->n_fields; i++)
-      j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->fields[i]);
+      j += snprintf(&buffer[j], MAX_REQUEST, "%-23s ", db->fields[i]);
 
     write(socket_fd, buffer, strlen(buffer) + 1);
     read(socket_fd, &c, sizeof(char));
@@ -918,7 +918,7 @@ void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX
   {
     j = snprintf(buffer, MAX_REQUEST, "\n");
     for (int i = 0; i < key_count; i++)
-      j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->fields[field_indices[i]]);
+      j += snprintf(&buffer[j], MAX_REQUEST, "%-23s ", db->fields[field_indices[i]]);
 
     write(socket_fd, buffer, strlen(buffer) + 1);
     read(socket_fd, &c, sizeof(char));

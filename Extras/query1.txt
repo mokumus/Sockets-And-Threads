@@ -1,9 +1,8 @@
 1 SELECT * FROM TABLE;
-1 SELECT * FROM TABLE WHERE Series_title_5='Mexico', Group='34912';
-1 SELECT Period Subject FROM TABLE;
-2 UPDATE TABLE SET;
-1 SELECT DISTINCT Series_reference FROM TABLE;
-2 UPDATE TABLE SET 2;
-2 UPDATE TABLE SET 3;
-
-
+2 SELECT * FROM TABLE WHERE territorial_authority='Far North District'
+2 SELECT SA2_code, SA2_name FROM TABLE;
+1 UPDATE TABLE SET total_dwelling_units='1453', WHERE month='1990-04-01';
+1 UPDATE TABLE SET SA2_name='Waikiki', WHERE SA2_name='Whakapaku'; 
+3 SELECT DISTINCT SA2_name FROM TABLE;
+4 SELECT DISTINCT territorial_authority FROM TABLE;
+5 SELECT DISTINCT month FROM TABLE;
