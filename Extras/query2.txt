@@ -1,6 +1,6 @@
+2 SELECT DISTINCT Age, Name FROM TABLE;
 2 SELECT Age, Name FROM TABLE;
 2 SELECT * FROM TABLE WHERE Age='23', Nationality='Turkish';
 1 SELECT * FROM TABLE WHERE Hobbies='Tennis,Piano,Computing';
 2 SELECT * FROM TABLE WHERE Name='Muhammed';
 1 SELECT * FROM TABLE;
-1 UPDATE TABLE SET Name='Sushi', Surname='BossFTW', Age='30', Hobbies='Detecting Nuclear Launches' WHERE Name='Yusuf';

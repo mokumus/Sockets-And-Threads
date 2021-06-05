@@ -19,8 +19,6 @@
 #include <signal.h>
 #include <pthread.h>
 #include <netinet/in.h>
-#include <math.h>
-#include <limits.h>
 #include <semaphore.h>
 
 /* ----------------DEFINES--------------------*/
@@ -79,6 +77,15 @@ sig_atomic_t exit_requested = 0; //SIGINT FLAG
 pthread_mutex_t mutex_stdout = PTHREAD_MUTEX_INITIALIZER; // File lock mutex for stdout
 pthread_cond_t cond_job = PTHREAD_COND_INITIALIZER;       // Signal new jobs
 pthread_mutex_t mutex_job = PTHREAD_MUTEX_INITIALIZER;    // Thread data mutex (job)
+pthread_mutex_t mutex_db = PTHREAD_MUTEX_INITIALIZER;     // Thread data mutex (job)
+
+int _AR = 0; // number of active readers
+int _AW = 0; // number of active writers
+int _WR = 0; // number of waiting readers
+int _WW = 0; // number of waiting writers
+pthread_cond_t okToRead = PTHREAD_COND_INITIALIZER;
+pthread_cond_t okToWrite = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int server_socket, // Server descriptor
     client_socket, // Client descriptor
@@ -119,13 +126,18 @@ void exit_on_invalid_input(void);
 int lines(const char *path);
 DataBase *db_init(void);
 void db_print(int start, int end, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count);
-void db_print_row(int n, int write_socket, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count);
-int process_cmd(char cmd[MAX_REQUEST], int write_socket);
+void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count);
+int process_cmd(char cmd[MAX_REQUEST], int socket_fd);
 int get_field_index(char *field_name, char delim);
-int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket);
-int gather_output_some(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket);
-int gather_output_update(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket, int index_where, char* where);
-void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket);
+int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
+int gather_output_some(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
+int gather_output_distinct(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
+int gather_output_update(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd, int index_where, char *where);
+int gather(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd, int index_where, char *where, int mode);
+void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
+
+int jenkins_one_at_a_time_hash(char *key);
+int linear_search(int *arr, int n, int x);
 
 // Job queue
 void add_request(int client_socket);
@@ -272,7 +284,7 @@ int main(int argc, char *argv[])
 
       // write(client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
       // Add request to jobs
-      pthread_mutex_unlock(&mutex_job);
+      pthread_mutex_lock(&mutex_job);
       add_request(client_socket);
 
       pthread_mutex_unlock(&mutex_job);
@@ -281,6 +293,7 @@ int main(int argc, char *argv[])
   }
 
   /*--------------Free resources--------------------------*/
+  printf("\n");
   print_log("Termination signal received, waiting for ongoing threads to complete.");
 
   exit_requested = 1;
@@ -339,15 +352,56 @@ void *worker_thread(void *data)
     bzero(buffer, MAX_REQUEST);
     while (read(curr_job.client_socket, buffer, MAX_REQUEST) > 0)
     {
-      // Do the deed
-      //printf("buffer: %s\n", buffer);
+      int n_queries = 0;
+      char id[32];
+      char opt[32];
+      sscanf(buffer, "%s %s", id, opt);
+
       print_log("Thread #%d: received query '%s'", td->id, buffer);
       usleep(500000); // Sleep 0.5 seconds
 
-      int n_queries = process_cmd(buffer, curr_job.client_socket);
-      write(curr_job.client_socket, "^", strlen("^") + 1);
+      if (opt[0] == 'U')
+      {
+        // Writer
+        pthread_mutex_lock(&mutex_lock);
+        while (_AW + _AR > 0)
+        {
+          _WW++;
+          pthread_cond_wait(&okToWrite, &mutex_lock);
+          _WW--;
+        }
+        _AW++;
+        pthread_mutex_unlock(&mutex_lock);
+        n_queries = process_cmd(buffer, curr_job.client_socket);
+        pthread_mutex_lock(&mutex_lock);
+        _AW--;
+        if (_WW > 0)
+          pthread_cond_signal(&okToWrite);
+        else if (_WR > 0)
+          pthread_cond_broadcast(&okToRead);
+        pthread_mutex_unlock(&mutex_lock);
+      }
+      else
+      {
+        //Reader
+        pthread_mutex_lock(&mutex_lock);
+        while (_AW + _WW > 0)
+        {
+          _WR++;
+          pthread_cond_wait(&okToRead, &mutex_lock);
+          _WR--;
+        }
+        _AR++;
+        pthread_mutex_unlock(&mutex_lock);
+        n_queries = process_cmd(buffer, curr_job.client_socket);
+        pthread_mutex_lock(&mutex_lock);
+        _AR--;
+        if (_AR == 0 && _WW > 0)
+          pthread_cond_signal(&okToWrite);
+        pthread_mutex_unlock(&mutex_lock);
+      }
 
-      //write(curr_job.client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
+      write(curr_job.client_socket, "^", strlen("^") + 1);
       print_log("Thread #%d: query completed, %d records have been returned.", td->id, n_queries);
     }
     shutdown(curr_job.client_socket, SHUT_RDWR);
@@ -528,9 +582,9 @@ void db_print(int start, int end, int field_indices[MAX_FIELDS], char keys[MAX_F
     db_print_row(i, 0, field_indices, keys, key_count);
 }
 
-void db_print_row(int n, int write_socket, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count)
+void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count)
 {
-  if (write_socket == 0)
+  if (socket_fd == 0)
   {
     if (keys == NULL)
     {
@@ -564,8 +618,8 @@ void db_print_row(int n, int write_socket, int field_indices[MAX_FIELDS], char k
       for (int i = 0; i < db->n_fields; i++)
         j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->rows[n][i]);
 
-      write(write_socket, buffer, strlen(buffer) + 1);
-      read(write_socket, &c, sizeof(char));
+      write(socket_fd, buffer, strlen(buffer) + 1);
+      read(socket_fd, &c, sizeof(char));
     }
     else
     {
@@ -575,8 +629,8 @@ void db_print_row(int n, int write_socket, int field_indices[MAX_FIELDS], char k
         if (strcmp(db->fields[field_indices[i]], keys[i]) == 0)
           j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->rows[n][field_indices[i]]);
       }
-      write(write_socket, buffer, strlen(buffer) + 1);
-      read(write_socket, &c, sizeof(char));
+      write(socket_fd, buffer, strlen(buffer) + 1);
+      read(socket_fd, &c, sizeof(char));
     }
   }
 }
@@ -622,7 +676,7 @@ Job get_next_request(void)
   }
 }
 
-int process_cmd(char cmd[MAX_REQUEST], int write_socket)
+int process_cmd(char cmd[MAX_REQUEST], int socket_fd)
 {
 
   char cmd_args[MAX_FIELDS][MAX_NAME];
@@ -701,15 +755,28 @@ int process_cmd(char cmd[MAX_REQUEST], int write_socket)
           field_indices[k] = get_field_index(cmd_args[i], '=');
           strcpy(keys[k++], strchr(cmd_args[i], '=') + 1);
         }
-        n_queries = gather_output_star(k, field_indices, keys, write_socket);
+        n_queries = gather(k, field_indices, keys, socket_fd, 0, NULL, 0);
       }
       else
       {
-        n_queries = gather_output_star(0, NULL, NULL, write_socket);
+        n_queries = gather(0, NULL, NULL, socket_fd, 0, NULL, 0);
       }
     }
     else if (strcmp(cmd_args[2], "DISTINCT") == 0)
     {
+      int k = 0;
+      int field_indices[MAX_FIELDS];
+      char keys[MAX_FIELDS][MAX_LINE];
+      for (int i = 3; i <= curr_arg; i++)
+      {
+        if (strcmp(cmd_args[i], "FROM") == 0)
+        {
+          n_queries = gather(k, field_indices, keys, socket_fd, 0, NULL, 3);
+          break;
+        }
+        field_indices[k] = get_field_index(cmd_args[i], '\0');
+        strcpy(keys[k++], cmd_args[i]);
+      }
     }
     else
     {
@@ -723,7 +790,7 @@ int process_cmd(char cmd[MAX_REQUEST], int write_socket)
         strcpy(keys[k++], cmd_args[i]);
         //printf("KEY{%d}: %s %d// ", k - 1, keys[k - 1], field_indices[k - 1]);
       }
-      n_queries = gather_output_some(k, field_indices, keys, write_socket);
+      n_queries = gather(k, field_indices, keys, socket_fd, 0, NULL, 1);
     }
   }
 
@@ -743,7 +810,7 @@ int process_cmd(char cmd[MAX_REQUEST], int write_socket)
         index_where = get_field_index(cmd_args[i], '=');
         strcpy(where, strchr(cmd_args[i], '=') + 1);
 
-        n_queries = gather_output_update(k, field_indices, keys, write_socket, index_where, where);
+        n_queries = gather(k, field_indices, keys, socket_fd, index_where, where, 2);
 
         break;
       }
@@ -783,13 +850,13 @@ int get_field_index(char *field_name, char delim)
   return ret;
 }
 
-int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket)
+int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd)
 {
   int n_records = 0;
 
   if (key_count > 0)
   {
-    db_print_fields(key_count, field_indices, NULL, write_socket);
+    db_print_fields(key_count, field_indices, NULL, socket_fd);
     for (int k = 0; k < db->n_rows; k++)
     {
       int match = 0;
@@ -804,7 +871,7 @@ int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[M
         if (match == key_count)
         {
           //printf("matches: %d\n", match);
-          db_print_row(k, write_socket, NULL, NULL, 0);
+          db_print_row(k, socket_fd, NULL, NULL, 0);
           n_records++;
           break;
         }
@@ -813,27 +880,27 @@ int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[M
   }
   else
   {
-    db_print_fields(key_count, field_indices, keys, write_socket);
+    db_print_fields(key_count, field_indices, keys, socket_fd);
     // Select all
     n_records = db->n_rows;
     //printf("Found %d records\n", n_records);
     for (int k = 0; k < db->n_rows; k++)
-      db_print_row(k, write_socket, NULL, NULL, 0);
+      db_print_row(k, socket_fd, NULL, NULL, 0);
   }
 
   return n_records;
 }
 
-int gather_output_some(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket)
+int gather_output_some(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd)
 {
   int n_records = db->n_rows;
-  db_print_fields(key_count, field_indices, keys, write_socket);
+  db_print_fields(key_count, field_indices, keys, socket_fd);
   for (int k = 0; k < db->n_rows; k++)
-    db_print_row(k, write_socket, field_indices, keys, key_count);
+    db_print_row(k, socket_fd, field_indices, keys, key_count);
   return n_records;
 }
 
-void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket)
+void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd)
 {
   int j;
   char c;
@@ -844,8 +911,8 @@ void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX
     for (int i = 0; i < db->n_fields; i++)
       j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->fields[i]);
 
-    write(write_socket, buffer, strlen(buffer) + 1);
-    read(write_socket, &c, sizeof(char));
+    write(socket_fd, buffer, strlen(buffer) + 1);
+    read(socket_fd, &c, sizeof(char));
   }
   else
   {
@@ -853,24 +920,115 @@ void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX
     for (int i = 0; i < key_count; i++)
       j += snprintf(&buffer[j], MAX_REQUEST, "%-17s ", db->fields[field_indices[i]]);
 
-    write(write_socket, buffer, strlen(buffer) + 1);
-    read(write_socket, &c, sizeof(char));
+    write(socket_fd, buffer, strlen(buffer) + 1);
+    read(socket_fd, &c, sizeof(char));
   }
 }
 
-int gather_output_update(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int write_socket, int index_where, char* where)
+int gather_output_update(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd, int index_where, char *where)
 {
   int n_records = 0;
-  db_print_fields(key_count, field_indices, NULL, write_socket);
-  for(int i = 0; i < db->n_rows; i++){
-    if(strcmp(db->rows[i][index_where], where) == 0){
-      for(int j = 0; j < key_count; j++){
+  db_print_fields(key_count, field_indices, NULL, socket_fd);
+  for (int i = 0; i < db->n_rows; i++)
+  {
+    if (strcmp(db->rows[i][index_where], where) == 0)
+    {
+      for (int j = 0; j < key_count; j++)
+      {
+        db->rows[i][field_indices[j]] = realloc(db->rows[i][field_indices[j]], strlen(keys[j]) + 1);
         strcpy(db->rows[i][field_indices[j]], keys[j]);
       }
-      db_print_row(i, write_socket, NULL, NULL, 0);
+      db_print_row(i, socket_fd, NULL, NULL, 0);
       n_records++;
     }
-    
   }
   return n_records;
+}
+
+int gather(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd, int index_where, char *where, int mode)
+{
+  int ret;
+  switch (mode)
+  {
+  case 0:
+    // Star
+    ret = gather_output_star(key_count, field_indices, keys, socket_fd);
+    break;
+  case 1:
+    // Some
+    ret = gather_output_some(key_count, field_indices, keys, socket_fd);
+    break;
+  case 2:
+    // Update
+    ret = gather_output_update(key_count, field_indices, keys, socket_fd, index_where, where);
+    break;
+  case 3:
+    // Distinct
+    ret = gather_output_distinct(key_count, field_indices, keys, socket_fd);
+    break;
+
+  default:
+    break;
+  }
+  return ret;
+}
+
+int gather_output_distinct(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd)
+{
+  int n_records = 0;
+  int *hash_list = malloc(db->n_rows * sizeof(int));
+  int n_hs = 0;
+  memset(hash_list, -1, sizeof(int) * db->n_rows);
+  db_print_fields(key_count, field_indices, keys, socket_fd);
+  for (int i = 0; i < db->n_rows; i++)
+  {
+    char hash_str[MAX_LINE];
+    int k = 0;
+
+    // Build hash string
+    //printf("key count: %d\n", key_count);
+    for (int j = 0; j < key_count; j++)
+      k += snprintf(&hash_str[k], MAX_LINE, "%s", db->rows[i][field_indices[j]]);
+
+    
+    int h = jenkins_one_at_a_time_hash(hash_str);
+
+    //printf("hash string: %s %d\n", hash_str,h);
+    if (linear_search(hash_list, n_hs, h) == -1)
+    {
+      hash_list[n_hs++] = h;
+      n_records++;
+      db_print_row(i, socket_fd, field_indices, keys, key_count);
+    }
+  }
+
+  free(hash_list);
+  return n_records;
+}
+
+int jenkins_one_at_a_time_hash(char *key)
+{
+  int hash, i;
+  int len = strlen(key);
+  for (hash = i = 0; i < len; ++i)
+  {
+    hash += key[i];
+    hash += (hash << 10);
+    hash ^= (hash >> 6);
+  }
+  hash += (hash << 3);
+  hash ^= (hash >> 11);
+  hash += (hash << 15);
+
+  return hash;
+}
+
+int linear_search(int *arr, int n, int x)
+{
+  for (int i = 0; i < n; i++)
+    if (arr[i] == x)
+      return i;
+    else if (arr[i] == -1)
+      break;
+  return -1;
 }
