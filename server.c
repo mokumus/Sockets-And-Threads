@@ -20,6 +20,7 @@
 #include <pthread.h>
 #include <netinet/in.h>
 #include <semaphore.h>
+#include <sys/un.h>
 
 /* ----------------DEFINES--------------------*/
 
@@ -29,6 +30,7 @@
 #define MAX_NAME 64     // Max string lenght of field names
 #define MAX_LINE 1024   // Max string of a data row(combined string length of all fields)
 #define MAX_REQUEST 4096
+#define FD_MAX 1024  	  // Maximum number of file descriptor, ulimit -n = 1024 in my machine, may change in other Linux versions
 
 /*-----------------DATA STRUCTURE-------------*/
 
@@ -119,7 +121,6 @@ void *worker_thread(void *data);
 void print_usage(void);
 void print_inputs(void);
 char *timestamp(void);
-void cleanup(void);
 void exit_on_invalid_input(void);
 
 // Database functions
@@ -151,8 +152,41 @@ int main(int argc, char *argv[])
   int option; // Getopt buffer
 
   /*--------------Check for another instance--------------*/
+  // From the book
+  // https://man7.org/tlpi/code/online/dist/sockets/us_abstract_bind.c.html
+  char *str;
+  int sockfd;
+  struct sockaddr_un addr;
+  memset(&addr, 0, sizeof(struct sockaddr_un)); /* Clear address structure */
+  addr.sun_family = AF_UNIX;                    /* UNIX domain address */
+  str = "xyz";                                  /* Abstract name is "\0xyz" */
+  strncpy(&addr.sun_path[1], str, strlen(str));
+  sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (sockfd == -1)
+    errExit("socket");
+  if (bind(sockfd, (struct sockaddr *)&addr, sizeof(sa_family_t) + strlen(str) + 1) == -1)
+  {
+    printf("A server instance is already running.\n");
+    system("ps -C server -o \"pid ppid pgid sid tty stat command\"");
+    exit(EXIT_FAILURE);
+  }
 
   /*--------------Daemonize-------------------------------*/
+  int pid = fork();
+  if (pid == -1)
+  {
+    printf("Fork failed\n");
+    return -1;
+  }
+
+  // Set process ID in order to cut connection with the terminal
+  // Will fail in parent, succeed in the child
+  if (setsid() == -1)
+    return -1;
+
+  // Exit parent, we daemon now
+  else if (pid != 0)
+    exit(EXIT_SUCCESS);
 
   /* -------------Parse command line input ---------------*/
   while ((option = getopt(argc, argv, "p:o:l:d:")) != -1)
@@ -181,13 +215,28 @@ int main(int argc, char *argv[])
       break;
     }
   }
-  /* -------------Check input validity -------------------*/
+  int fd_log = open(_O, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+  // Close open file descriptors after the parent exits
+  for (int i = 0; i < FD_MAX; i++){
+    if(!(i == fd_log || i == sockfd))
+      close(i);
+  }
+    
 
-  exit_on_invalid_input();
+  // Open log file and redirect stdout and stderr
+  
+
+  if (fd_log == -1)
+    errExit("Failed to open log file");
 
   // Close open file descriptors after the parent exits
 
-  // Open log file and redirect stdout and stderr
+  dup2(fd_log, 1); //stdout > fd
+  dup2(fd_log, 2); //stderr > fd
+
+  /* -------------Check input validity -------------------*/
+
+  exit_on_invalid_input();
 
   print_inputs();
 
@@ -202,35 +251,6 @@ int main(int argc, char *argv[])
   double time_taken = ((double)t) / CLOCKS_PER_SEC; // calculate the elapsed time
 
   print_log("Dataset loaded in %f seconds with %d records", time_taken, db->n_rows);
-
-  //process_cmd("1 SELECT Age, Name FROM TABLE;", 0);
-
-  //process_cmd("2 SELECT * FROM TABLE WHERE Age='24';", 0);
-
-  //process_cmd("1 SELECT  Period Subject FROM TABLE;", 0);
-
-  //process_cmd("2 UPDATE TABLE SET Series_title_5='This is a new title' WHERE Group='Industry by financial variable';", 0);
-
-  //process_cmd("1 SELECT DISTINCT Series_reference FROM TABLE;", 0);
-
-  //db_print(db, 0, 5);
-
-  // Free DB
-
-  /*
-  for (int i = 0; i < db->n_rows; i++)
-  {
-    for (int k = 0; k < db->n_fields; k++)
-      free(db->rows[i][k]);
-    free(db->rows[i]);
-  }
-  free(db->rows);
-
-  free(thread_ids);
-  free(td);
-
-  exit(EXIT_SUCCESS);
-  */
 
   /*--------------Initilize server------------------------*/
   setbuf(stdout, NULL);
@@ -317,6 +337,7 @@ int main(int argc, char *argv[])
 
   free(thread_ids);
   free(td);
+  close(fd_log);
 
   return 0;
 }
@@ -409,11 +430,6 @@ void *worker_thread(void *data)
   }
 
   return NULL;
-}
-
-void cleanup()
-{
-  return;
 }
 
 void sigint_handler(int sig_no)
@@ -990,7 +1006,6 @@ int gather_output_distinct(int key_count, int field_indices[MAX_FIELDS], char ke
     for (int j = 0; j < key_count; j++)
       k += snprintf(&hash_str[k], MAX_LINE, "%s", db->rows[i][field_indices[j]]);
 
-    
     int h = jenkins_one_at_a_time_hash(hash_str);
 
     //printf("hash string: %s %d\n", hash_str,h);
