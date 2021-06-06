@@ -30,7 +30,7 @@
 #define MAX_NAME 64     // Max string lenght of field names
 #define MAX_LINE 1024   // Max string of a data row(combined string length of all fields)
 #define MAX_REQUEST 4096
-#define FD_MAX 1024 // Maximum number of file descriptor, ulimit -n = 1024 in my machine, may change in other Linux versions
+#define FD_MAX 1024     // Maximum number of file descriptor, ulimit -n = 1024 in my machine, may change in other Linux versions
 
 /*-----------------DATA STRUCTURE-------------*/
 
@@ -65,13 +65,11 @@ typedef struct
 typedef struct
 {
   int id;
-  int active;
 } ThreadData;
 
 pthread_t *thread_ids; // Path calculator thread PIDS
 ThreadData *td;
 DataBase *db;
-
 RequestList RL;
 
 sig_atomic_t exit_requested = 0; //SIGINT FLAG
@@ -81,6 +79,8 @@ pthread_cond_t cond_job = PTHREAD_COND_INITIALIZER;       // Signal new jobs
 pthread_mutex_t mutex_job = PTHREAD_MUTEX_INITIALIZER;    // Thread data mutex (job)
 pthread_mutex_t mutex_db = PTHREAD_MUTEX_INITIALIZER;     // Thread data mutex (job)
 
+
+// Reader/Writer variables
 int _AR = 0; // number of active readers
 int _AW = 0; // number of active writers
 int _WR = 0; // number of waiting readers
@@ -90,8 +90,7 @@ pthread_cond_t okToWrite = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int server_socket, // Server descriptor
-    client_socket, // Client descriptor
-    n_running;     // Currently busy threads
+    client_socket; // Client descriptor
 
 int opt_P, _P, // Input port no
     opt_O,
@@ -115,6 +114,7 @@ char _D[MAX_PATH]; // Dataset file input
 
 /* ----------------PROTOTYPES-----------------*/
 
+// Worker thread function
 void *worker_thread(void *data);
 
 // Misc functions
@@ -123,24 +123,33 @@ void print_inputs(void);
 char *timestamp(void);
 void exit_on_invalid_input(void);
 
-// Database functions
-int lines(const char *path);
+// Database initilization functions
 DataBase *db_init(void);
+int lines(const char *path);
+
+// Database debugging functions
 void db_print(int start, int end, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count);
-void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count);
+
+// SQL parsing functions
 int process_cmd(char cmd[MAX_REQUEST], int socket_fd);
+
+// SQL helper functions
 int get_field_index(char *field_name, char delim);
+void db_print_row(int n, int socket_fd, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int key_count);
+void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
+
+// SQL qeury handlers
 int gather_output_star(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
 int gather_output_some(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
 int gather_output_distinct(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
 int gather_output_update(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd, int index_where, char *where);
 int gather(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd, int index_where, char *where, int mode);
-void db_print_fields(int key_count, int field_indices[MAX_FIELDS], char keys[MAX_FIELDS][MAX_LINE], int socket_fd);
 
+// Hashing & Searching functions
 int jenkins_one_at_a_time_hash(char *key);
 int linear_search(int *arr, int n, int x);
 
-// Job queue
+// Job queue access functions
 void add_request(int client_socket);
 Job get_next_request(void);
 
@@ -269,7 +278,6 @@ int main(int argc, char *argv[])
   for (int i = 0; i < _L; i++)
   {
     td[i].id = i;
-    td[i].active = 0;
     pthread_create(&thread_ids[i], NULL, worker_thread, &td[i]);
   }
 
@@ -300,8 +308,6 @@ int main(int argc, char *argv[])
 
     if (client_socket > 0)
     {
-
-      // write(client_socket, "CTRL+C Mühendisi", strlen("CTRL+C Mühendisi"));
       // Add request to jobs
       pthread_mutex_lock(&mutex_job);
       add_request(client_socket);

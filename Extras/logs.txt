@@ -1,33 +1,40 @@
-Sun Jun  6 12:55:42 2021 Executing with parameters:
-Sun Jun  6 12:55:42 2021 -p 9090
-Sun Jun  6 12:55:42 2021 -o Extras/logs.txt
-Sun Jun  6 12:55:42 2021 -l 4
-Sun Jun  6 12:55:42 2021 -d Extras/table1.csv
-Sun Jun  6 12:55:42 2021 Loading dataset...
-Sun Jun  6 12:55:42 2021 Dataset loaded in 0.445039 seconds with 842607 records
-Sun Jun  6 12:55:42 2021 A pool of 4 threads has been created.
-Sun Jun  6 12:55:42 2021 Thread #0: waiting for connection.
-Sun Jun  6 12:55:42 2021 Thread #2: waiting for connection.
-Sun Jun  6 12:55:42 2021 Thread #3: waiting for connection.
-Sun Jun  6 12:55:42 2021 Thread #1: waiting for connection.
-Sun Jun  6 12:55:50 2021 A connection has been delegated to thread id #3
-Sun Jun  6 12:55:50 2021 Thread #3: received query '5 SELECT DISTINCT month FROM TABLE;'
-Sun Jun  6 12:55:50 2021 A connection has been delegated to thread id #2
-Sun Jun  6 12:55:50 2021 Thread #2: received query '3 SELECT DISTINCT SA2_name FROM TABLE;'
-Sun Jun  6 12:55:50 2021 A connection has been delegated to thread id #0
-Sun Jun  6 12:55:50 2021 Thread #0: received query '4 SELECT DISTINCT territorial_authority FROM TABLE;'
-Sun Jun  6 12:55:50 2021 A connection has been delegated to thread id #1
-Sun Jun  6 12:55:50 2021 Thread #1: received query '2 SELECT * FROM TABLE WHERE territorial_authority='Far North District''
-Sun Jun  6 12:55:50 2021 Thread #0: query completed, 68 records have been returned.
-Sun Jun  6 12:55:50 2021 A connection has been delegated to thread id #0
-Sun Jun  6 12:55:50 2021 Thread #0: received query '1 SELECT * FROM TABLE;'
-Sun Jun  6 12:55:50 2021 Thread #1: query completed, 17531 records have been returned.
-Sun Jun  6 12:55:50 2021 Thread #1: received query '2 SELECT SA2_code, SA2_name FROM TABLE;'
-Sun Jun  6 12:55:51 2021 Thread #3: query completed, 373 records have been returned.
-Sun Jun  6 12:55:53 2021 Thread #2: query completed, 2259 records have been returned.
-Sun Jun  6 12:56:07 2021 Thread #1: query completed, 842607 records have been returned.
-Sun Jun  6 12:56:16 2021 Thread #0: query completed, 842607 records have been returned.
-Sun Jun  6 12:56:16 2021 Thread #0: received query '1 UPDATE TABLE SET total_dwelling_units='1453', WHERE month='1990-04-01';'
-Sun Jun  6 12:56:16 2021 Thread #0: query completed, 2259 records have been returned.
-Sun Jun  6 12:56:16 2021 Thread #0: received query '1 UPDATE TABLE SET SA2_name='Waikiki', WHERE SA2_name='Whakapaku';'
-Sun Jun  6 12:56:16 2021 Thread #0: query completed, 373 records have been returned.
+Sun Jun  6 17:04:06 2021 Executing with parameters:
+Sun Jun  6 17:04:06 2021 -p 9090
+Sun Jun  6 17:04:06 2021 -o Extras/logs.txt
+Sun Jun  6 17:04:06 2021 -l 4
+Sun Jun  6 17:04:06 2021 -d Extras/table1.csv
+Sun Jun  6 17:04:06 2021 Loading dataset...
+Sun Jun  6 17:04:07 2021 Dataset loaded in 1.441602 seconds with 842607 records
+Sun Jun  6 17:04:07 2021 A pool of 4 threads has been created.
+Sun Jun  6 17:04:07 2021 Thread #0: waiting for connection.
+Sun Jun  6 17:04:07 2021 Thread #1: waiting for connection.
+Sun Jun  6 17:04:07 2021 Thread #2: waiting for connection.
+Sun Jun  6 17:04:07 2021 Thread #3: waiting for connection.
+Sun Jun  6 17:04:08 2021 A connection has been delegated to thread id #1
+Sun Jun  6 17:04:08 2021 Thread #1: received query '2 SELECT * FROM TABLE WHERE territorial_authority='Far North District''
+Sun Jun  6 17:04:08 2021 A connection has been delegated to thread id #0
+Sun Jun  6 17:04:08 2021 Thread #0: received query '4 SELECT DISTINCT territorial_authority FROM TABLE;'
+Sun Jun  6 17:04:08 2021 A connection has been delegated to thread id #2
+Sun Jun  6 17:04:08 2021 Thread #2: received query '3 SELECT DISTINCT SA2_name FROM TABLE;'
+Sun Jun  6 17:04:08 2021 A connection has been delegated to thread id #3
+Sun Jun  6 17:04:08 2021 Thread #3: received query '1 SELECT * FROM TABLE;'
+Sun Jun  6 17:04:08 2021 Thread #1: query completed, 17531 records have been returned.
+Sun Jun  6 17:04:08 2021 Thread #1: received query '2 SELECT SA2_code, SA2_name FROM TABLE;'
+Sun Jun  6 17:04:09 2021 Thread #0: query completed, 68 records have been returned.
+Sun Jun  6 17:04:09 2021 A connection has been delegated to thread id #0
+Sun Jun  6 17:04:09 2021 Thread #0: received query '5 SELECT DISTINCT month FROM TABLE;'
+Sun Jun  6 17:04:10 2021 Thread #0: query completed, 373 records have been returned.
+Sun Jun  6 17:04:12 2021 Thread #2: query completed, 2259 records have been returned.
+Sun Jun  6 17:04:28 2021 Thread #3: query completed, 842607 records have been returned.
+Sun Jun  6 17:04:28 2021 Thread #3: received query '1 UPDATE TABLE SET total_dwelling_units='1453', WHERE month='1990-04-01';'
+Sun Jun  6 17:04:36 2021 Thread #1: query completed, 842607 records have been returned.
+Sun Jun  6 17:04:36 2021 Thread #3: query completed, 2259 records have been returned.
+Sun Jun  6 17:04:36 2021 Thread #3: received query '1 UPDATE TABLE SET SA2_name='Waikiki', WHERE SA2_name='Whakapaku';'
+Sun Jun  6 17:04:36 2021 Thread #3: query completed, 373 records have been returned.
+
+Sun Jun  6 18:15:04 2021 Termination signal received, waiting for ongoing threads to complete.
+Sun Jun  6 18:15:04 2021 Thread #3: terminating.
+Sun Jun  6 18:15:04 2021 Thread #2: terminating.
+Sun Jun  6 18:15:04 2021 Thread #0: terminating.
+Sun Jun  6 18:15:04 2021 Thread #1: terminating.
+Sun Jun  6 18:15:04 2021 All threads have terminated, server shutting down.
