@@ -30,7 +30,7 @@
 #define MAX_NAME 64     // Max string lenght of field names
 #define MAX_LINE 1024   // Max string of a data row(combined string length of all fields)
 #define MAX_REQUEST 4096
-#define FD_MAX 1024  	  // Maximum number of file descriptor, ulimit -n = 1024 in my machine, may change in other Linux versions
+#define FD_MAX 1024 // Maximum number of file descriptor, ulimit -n = 1024 in my machine, may change in other Linux versions
 
 /*-----------------DATA STRUCTURE-------------*/
 
@@ -217,14 +217,13 @@ int main(int argc, char *argv[])
   }
   int fd_log = open(_O, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
   // Close open file descriptors after the parent exits
-  for (int i = 0; i < FD_MAX; i++){
-    if(!(i == fd_log || i == sockfd))
+  for (int i = 0; i < FD_MAX; i++)
+  {
+    if (!(i == fd_log || i == sockfd))
       close(i);
   }
-    
 
   // Open log file and redirect stdout and stderr
-  
 
   if (fd_log == -1)
     errExit("Failed to open log file");
