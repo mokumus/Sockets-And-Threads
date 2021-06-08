@@ -1,48 +1,19 @@
-Tue Jun  8 12:16:51 2021 Executing with parameters:
-Tue Jun  8 12:16:51 2021 -p 9090
-Tue Jun  8 12:16:51 2021 -o Extras/logs.txt
-Tue Jun  8 12:16:51 2021 -l 4
-Tue Jun  8 12:16:51 2021 -d Extras/table1.csv
-Tue Jun  8 12:16:51 2021 Loading dataset...
-Tue Jun  8 12:16:51 2021 Dataset loaded in 0.652823 seconds with 842607 records
-Tue Jun  8 12:16:51 2021 A pool of 4 threads has been created.
-Tue Jun  8 12:16:51 2021 Thread #0: waiting for connection.
-Tue Jun  8 12:16:51 2021 Thread #1: waiting for connection.
-Tue Jun  8 12:16:51 2021 Thread #2: waiting for connection.
-Tue Jun  8 12:16:51 2021 Thread #3: waiting for connection.
-Tue Jun  8 12:17:12 2021 A connection has been delegated to thread id #0
-Tue Jun  8 12:17:12 2021 Thread #0: received query '1 SELECT * FROM TABLE;'
-Tue Jun  8 12:17:12 2021 A connection has been delegated to thread id #1
-Tue Jun  8 12:17:12 2021 Thread #1: received query '2 SELECT * FROM TABLE WHERE territorial_authority='Far North District''
-Tue Jun  8 12:17:12 2021 A connection has been delegated to thread id #2
-Tue Jun  8 12:17:12 2021 Thread #2: received query '3 SELECT DISTINCT SA2_name FROM TABLE;'
-Tue Jun  8 12:17:13 2021 Thread #1: query completed, 17531 records have been returned.
-Tue Jun  8 12:17:13 2021 Thread #1: received query '2 SELECT SA2_code, SA2_name FROM TABLE;'
-Tue Jun  8 12:17:15 2021 Thread #2: query completed, 2259 records have been returned.
-Tue Jun  8 12:17:15 2021 Thread #2: received query '3 SELECT DISTINCT apartments FROM TABLE;'
-Tue Jun  8 12:17:15 2021 Thread #2: query completed, 181 records have been returned.
-Tue Jun  8 12:17:15 2021 Thread #2: received query '3 SELECT DISTINCT townhouses_flats_units_other FROM TABLE;'
-Tue Jun  8 12:17:16 2021 Thread #2: query completed, 77 records have been returned.
-Tue Jun  8 12:17:16 2021 Thread #2: received query '3 SELECT * FROM TABLE WHERE SA2_name='Waikiki''
-Tue Jun  8 12:17:17 2021 Thread #2: query completed, 0 records have been returned.
-Tue Jun  8 12:17:17 2021 Thread #2: received query '3 SELECT SA2_code, SA2_name FROM TABLE;'
-Tue Jun  8 12:17:27 2021 Thread #0: query completed, 842607 records have been returned.
-Tue Jun  8 12:17:27 2021 Thread #0: received query '1 UPDATE TABLE SET SA2_name='Waikiki', WHERE SA2_name='Whakapaku';'
-Tue Jun  8 12:17:27 2021 Thread #1: query completed, 842607 records have been returned.
-Tue Jun  8 12:17:27 2021 Thread #1: received query '2 SELECT * FROM TABLE;'
-Tue Jun  8 12:17:30 2021 Thread #2: query completed, 842607 records have been returned.
-Tue Jun  8 12:17:30 2021 Thread #0: query completed, 373 records have been returned.
-Tue Jun  8 12:17:30 2021 Thread #0: received query '1 UPDATE TABLE SET total_dwelling_units='1453', WHERE month='1990-04-01';'
-Tue Jun  8 12:17:42 2021 Thread #1: query completed, 842607 records have been returned.
-Tue Jun  8 12:17:42 2021 Thread #0: query completed, 2259 records have been returned.
-Tue Jun  8 12:17:42 2021 Thread #0: received query '1 SELECT DISTINCT month FROM TABLE;'
-Tue Jun  8 12:17:43 2021 Thread #0: query completed, 373 records have been returned.
-Tue Jun  8 12:17:43 2021 Thread #0: received query '1 SELECT DISTINCT houses FROM TABLE;'
-Tue Jun  8 12:17:44 2021 Thread #0: query completed, 75 records have been returned.
+Tue Jun  8 15:42:19 2021 Executing with parameters:
+Tue Jun  8 15:42:19 2021 -p 9090
+Tue Jun  8 15:42:19 2021 -o Extras/logs.txt
+Tue Jun  8 15:42:19 2021 -l 4
+Tue Jun  8 15:42:19 2021 -d Extras/table1.csv
+Tue Jun  8 15:42:19 2021 Loading dataset...
+Tue Jun  8 15:42:21 2021 Dataset loaded in 1.355763 seconds with 842607 records
+Tue Jun  8 15:42:21 2021 A pool of 4 threads has been created.
+Tue Jun  8 15:42:21 2021 Thread #0: waiting for connection.
+Tue Jun  8 15:42:21 2021 Thread #1: waiting for connection.
+Tue Jun  8 15:42:21 2021 Thread #2: waiting for connection.
+Tue Jun  8 15:42:21 2021 Thread #3: waiting for connection.
 
-Tue Jun  8 12:18:16 2021 Termination signal received, waiting for ongoing threads to complete.
-Tue Jun  8 12:18:16 2021 Thread #3: terminating.
-Tue Jun  8 12:18:16 2021 Thread #1: terminating.
-Tue Jun  8 12:18:16 2021 Thread #2: terminating.
-Tue Jun  8 12:18:16 2021 Thread #0: terminating.
-Tue Jun  8 12:18:16 2021 All threads have terminated, server shutting down.
+Tue Jun  8 15:42:33 2021 Termination signal received, waiting for ongoing threads to complete.
+Tue Jun  8 15:42:33 2021 Thread #0: terminating.
+Tue Jun  8 15:42:33 2021 Thread #1: terminating.
+Tue Jun  8 15:42:33 2021 Thread #2: terminating.
+Tue Jun  8 15:42:33 2021 Thread #3: terminating.
+Tue Jun  8 15:42:33 2021 All threads have terminated, server shutting down.
