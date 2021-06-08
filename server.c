@@ -384,24 +384,24 @@ void *worker_thread(void *data)
       sscanf(buffer, "%s %s", id, opt);
 
       print_log("Thread #%d: received query '%s'", td->id, buffer);
-      //usleep(500000); // Sleep 0.5 seconds
+      usleep(500000); // Sleep 0.5 seconds
 
       if (opt[0] == 'U')
       {
         // Writer
         pthread_mutex_lock(&mutex_lock);
-        while (_AW + _AR > 0)
+        while (_AW + _AR > 0) // If any readers or writers, wait
         {
-          _WW++;
+          _WW++;  // Waiting Writer
           pthread_cond_wait(&okToWrite, &mutex_lock);
           _WW--;
         }
-        _AW++;
+        _AW++;    // Active writer
         pthread_mutex_unlock(&mutex_lock);
-        n_queries = process_cmd(buffer, curr_job.client_socket);
+        n_queries = process_cmd(buffer, curr_job.client_socket);  // Access DB
         pthread_mutex_lock(&mutex_lock);
         _AW--;
-        if (_WW > 0)
+        if (_WW > 0)  // Give write priority
           pthread_cond_signal(&okToWrite);
         else if (_WR > 0)
           pthread_cond_broadcast(&okToRead);
@@ -411,15 +411,15 @@ void *worker_thread(void *data)
       {
         //Reader
         pthread_mutex_lock(&mutex_lock);
-        while (_AW + _WW > 0)
+        while (_AW + _WW > 0) // If any writers wait
         {
-          _WR++;
+          _WR++;  // Waiting reader
           pthread_cond_wait(&okToRead, &mutex_lock);
           _WR--;
         }
-        _AR++;
+        _AR++;  // Active reader
         pthread_mutex_unlock(&mutex_lock);
-        n_queries = process_cmd(buffer, curr_job.client_socket);
+        n_queries = process_cmd(buffer, curr_job.client_socket); // Access DB
         pthread_mutex_lock(&mutex_lock);
         _AR--;
         if (_AR == 0 && _WW > 0)
