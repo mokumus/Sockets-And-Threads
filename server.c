@@ -225,6 +225,12 @@ int main(int argc, char *argv[])
     }
   }
   int fd_log = open(_O, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+  // Open log file and redirect stdout and stderr
+
+  if (fd_log == -1)
+    errExit("Failed to open log file");
+
+
   // Close open file descriptors after the parent exits
   for (int i = 0; i < FD_MAX; i++)
   {
@@ -232,10 +238,6 @@ int main(int argc, char *argv[])
       close(i);
   }
 
-  // Open log file and redirect stdout and stderr
-
-  if (fd_log == -1)
-    errExit("Failed to open log file");
 
   // Close open file descriptors after the parent exits
 
